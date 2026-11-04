@@ -1,16 +1,38 @@
-"""Запуск: python3 main.py --help."""
+"""Интерфейс генерации и подготовка Python-окружения."""
 import argparse
+import os
+import sys
 from collections import Counter
 from pathlib import Path
 
-from .constraints import GROUP_MODES
-from .objectives import OBJECTIVES, OBJECTIVE_MODES
-from .generation import ALGORITHMS, generate_tickets_report
-from .table_io import read_questions, write_tickets
+
+def bootstrap(entry: Path):
+    root = entry.parent
+    marker = 'TEACHER_TOOLS_RUNTIME'
+    if os.environ.get(marker) == str(root):
+        return
+    executable = root / '.venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+    if not executable.exists():
+        executable = Path(sys.executable)
+    environment = os.environ.copy()
+    store = Path('/nix/store')
+    if sys.platform == 'linux' and store.is_dir():
+        libraries = [environment.get('LD_LIBRARY_PATH', '')]
+        for pattern in ('*-gcc-*-lib/lib/libstdc++.so.6', '*-zlib-*/lib/libz.so.1'):
+            found = sorted(store.glob(pattern))
+            if found:
+                libraries.append(str(found[0].parent))
+        environment['LD_LIBRARY_PATH'] = ':'.join(p for p in libraries if p)
+    environment[marker] = str(root)
+    os.execve(str(executable), [str(executable), str(entry), *sys.argv[1:]], environment)
 
 
 def main(argv=None) -> None:
-    parser = argparse.ArgumentParser(epilog='Другие команды: main.py print --help; main.py test.', description="Генерация билетов с выравниванием сложности")
+    from .io import read_questions, write_tickets
+    from .planning import ALGORITHMS, generate_tickets_report
+    from .problem import GROUP_MODES, OBJECTIVES, OBJECTIVE_MODES
+
+    parser = argparse.ArgumentParser(epilog='Другие команды: ticket_tools.py print --help; ticket_tools.py test.', description="Генерация билетов с выравниванием сложности")
     parser.add_argument("--questions", type=Path, required=True, help="JSON с банком вопросов")
     parser.add_argument("--questions-per-ticket", "-n", type=int, required=True)
     parser.add_argument("--tickets", type=int, required=True, help="Число различных билетов")

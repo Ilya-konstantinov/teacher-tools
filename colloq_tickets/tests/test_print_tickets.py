@@ -1,12 +1,13 @@
 import copy
 import json
+import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 import unittest
 
-from src.print_tickets import export_tex, tex_escape
+from src.printing import export_tex, tex_escape
 
 
 class PrintingTests(unittest.TestCase):
@@ -64,21 +65,22 @@ class PrintingTests(unittest.TestCase):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 export_tex(self.data, **kwargs)
 
-    def test_print_command_through_main(self):
-        entry = Path(__file__).resolve().parents[1] / 'main.py'
+    def test_print_command_through_tools(self):
+        entry = Path(__file__).resolve().parents[1] / 'ticket_tools.py'
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / 'tickets.json'
             output = Path(directory) / 'printed.tex'
             source.write_text(json.dumps(self.data), encoding='utf-8')
             result = subprocess.run([sys.executable, str(entry), 'print', str(source),
                                      '-o', str(output), '--tickets-per-page', '2'],
-                                    cwd=directory, capture_output=True, text=True)
+                                    cwd=directory, capture_output=True, text=True,
+                                    env={k: v for k, v in os.environ.items() if k != 'TEACHER_TOOLS_RUNTIME'})
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(output.read_text(), export_tex(self.data, tickets_per_page=2))
 
     def test_real_bank_export(self):
-        from src.generation import generate_tickets
-        from src.table_io import read_questions
+        from src.planning import generate_tickets
+        from src.io import read_questions
 
         questions = read_questions(Path(__file__).resolve().parents[1] / 'examples' / 'questions_ma2.json')
         tickets = generate_tickets(questions, 2, 100, 'different', target_weight=6)

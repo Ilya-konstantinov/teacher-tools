@@ -1,12 +1,9 @@
-"""Модели вопросов и билетов."""
+"""Модели вопросов, типов, профилей и планов билетов."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from dataclasses import dataclass, field
 from fractions import Fraction
-
-if TYPE_CHECKING:
-    from .sum_models import SumPlan
+from typing import Mapping
 
 
 @dataclass(frozen=True)
@@ -80,3 +77,28 @@ class GenerationResult:
     objective_count: int = 3
     frequency_guarantee: str = "global-optimum"
     diagnostics: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class TopicProfile:
+    histogram: tuple[tuple[Fraction, int], ...]
+    # Одна строка на исходную тему; классы в порядке весов гистограммы.
+    members: tuple[tuple[int, ...], ...]
+
+
+@dataclass(frozen=True)
+class SumNode:
+    kind: str
+    table: Mapping[tuple[int, Fraction], int]
+    children: tuple[SumNode, ...] = ()
+    profile: int = -1
+    copies: int = 1
+    layers: tuple[Mapping[tuple[int, Fraction], int], ...] = ()
+
+
+@dataclass(frozen=True)
+class SumPlan:
+    root: SumNode
+    profiles: tuple[TopicProfile, ...]
+    amounts: tuple[tuple[Fraction, int], ...]
+    size: int

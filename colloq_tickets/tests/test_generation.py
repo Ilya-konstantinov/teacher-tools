@@ -11,13 +11,13 @@ from fractions import Fraction
 from pathlib import Path
 from unittest.mock import patch
 
-from src.constraints import GROUP_MODES, compatible
-from src.generation import generate_tickets, generate_tickets_report
+from src.problem import GROUP_MODES, compatible
+from src.planning import generate_tickets, generate_tickets_report
 from src.models import Question
-from src.table_io import read_questions, write_tickets
+from src.io import read_questions, write_tickets
 from src.reconstruction import realize, restore_tickets
 from src.planning import plan_tickets
-from src.ticket_types import balanced_cost, enumerate_types, group_questions
+from src.problem import balanced_cost, enumerate_types, group_questions
 
 # Регрессия прежнего порядка целей; новый режим проверяется отдельно.
 generate_tickets = partial(generate_tickets, objective_mode="balanced")
@@ -120,7 +120,7 @@ class GenerationTests(unittest.TestCase):
 
     def test_full_generation_restores_only_once(self):
         questions = [Question(str(i), str(i), 1 + i // 2) for i in range(6)]
-        with patch('src.generation.restore_tickets', wraps=restore_tickets) as restored:
+        with patch('src.planning.restore_tickets', wraps=restore_tickets) as restored:
             generate_tickets_report(questions, 2, 4, target_weight=4, algorithm='cp-sat-types')
         self.assertEqual(restored.call_count, 1)
 
@@ -243,7 +243,7 @@ class GenerationTests(unittest.TestCase):
             output = Path(directory) / 'out.json'
             source.write_text(json.dumps([{'id': 'a', 'text': 'A', 'weight': 1, 'group': 'a'}]))
             output.write_text('keep')
-            result = subprocess.run([sys.executable, str(Path(__file__).resolve().parents[1] / 'main.py'),
+            result = subprocess.run([sys.executable, str(Path(__file__).resolve().parents[1] / 'generate_tickets.py'),
                                      '--questions', str(source), '-n', '2', '--tickets', '1',
                                      '--target-weight', '2', '--output', str(output)], capture_output=True)
             self.assertNotEqual(result.returncode, 0)

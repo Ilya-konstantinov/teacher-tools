@@ -6,7 +6,7 @@ from math import comb, lcm, prod
 from time import perf_counter
 
 from .models import Question, TicketType, TypeSelection
-from .ticket_types import balanced_cost
+from .problem import balanced_cost
 
 
 def _cp_model():
@@ -15,7 +15,7 @@ def _cp_model():
     except ImportError as error:
         raise ValueError("Не удалось загрузить OR-Tools. Установите зависимости: "
                          "python3 -m venv .venv; .venv/bin/python -m pip install -r requirements.txt; "
-                         "запускайте через python3 main.py (на NixOS он также подключает системные библиотеки)") from error
+                         "запускайте через python3 generate_tickets.py (на NixOS он также подключает системные библиотеки)") from error
     return cp_model
 
 

@@ -8,7 +8,7 @@ import csv
 from html import escape
 from pathlib import Path
 
-from .table_io import read_examiners
+from .data import read_examiners
 
 
 def clock(minute: int) -> str:

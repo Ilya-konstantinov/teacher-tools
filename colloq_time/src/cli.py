@@ -1,13 +1,13 @@
-"""Запуск: python3 main.py --help."""
+"""Запуск: python3 schedule_students.py --help."""
 import argparse
 from pathlib import Path
 
 from .allocation import allocate
-from .table_io import read_examiners, read_students, timestamp, write_assignments
+from .data import read_examiners, read_students, timestamp, write_assignments
 
 
 def main(argv=None) -> None:
-    parser = argparse.ArgumentParser(epilog='Другие команды: main.py workload --help; main.py test.', description="Распределение студентов на коллоквиум")
+    parser = argparse.ArgumentParser(epilog='Другие команды: schedule_tools.py workload --help; schedule_tools.py test.', description="Распределение студентов на коллоквиум")
     parser.add_argument("--examiners", type=Path, required=True, help="TSV/CSV с принимающими")
     parser.add_argument("--students", type=Path, required=True, help="TSV/CSV с заявками")
     parser.add_argument("--output", type=Path, default=Path("schedule.tsv"))

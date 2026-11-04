@@ -1,10 +1,33 @@
-"""Чтение UTF-8 TSV/CSV и запись результата; алгоритм не зависит от файлов."""
+"""Модели расписания, чтение заявок и запись результата."""
 import csv
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from .models import Assignment, Examiner, Student
+
+@dataclass(frozen=True)
+class Examiner:
+    name: str
+    hours: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class Student:
+    name: str
+    group: str
+    priorities: tuple[int | None, ...]
+    unavailable: frozenset[int]
+    submitted_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class Assignment:
+    student: Student
+    hour: int | None
+    priority: int | None
+    reason: str = ""
+    start_minute: int | None = None
 
 
 def read_table(path: Path) -> list[list[str]]:

@@ -1,17 +1,27 @@
-"""Точный выбор билетов через классы весов и тематические группы."""
-from fractions import Fraction
-from dataclasses import replace
+"""Выбор алгоритма, построение плана и публичный API генерации."""
 import math
-
-from .constraints import GROUP_MODES, validate_questions
+from dataclasses import replace
+from fractions import Fraction
+from .cp_sat import select_direct, select_types
 from .models import TicketPlan, TypeSelection
-from .objectives import OBJECTIVE_MODES, describe_selection
-from .cp_selection import select_types, select_direct
-from .dp_selection import analyze_dp, select_types_dp
-from .enumeration_selection import select_types_enumeration
-from .reduction import enumeration_bound, reduce_counts
-from .ticket_types import SearchLimit, enumerate_types, group_questions
-from .sum_selection import select_sums, select_weight_types
+from .problem import (
+    GROUP_MODES,
+    OBJECTIVE_MODES,
+    SearchLimit,
+    describe_selection,
+    enumerate_types,
+    group_questions,
+    validate_questions,
+)
+from .reconstruction import restore_tickets
+from .sum_dp import select_sums, select_weight_types
+from .type_dp import (
+    analyze_dp,
+    enumeration_bound,
+    reduce_counts,
+    select_types_dp,
+    select_types_enumeration,
+)
 
 
 ALGORITHMS = ("auto", "sum-dp", "enumerate", "dp", "cp-sat-types", "cp-sat")
@@ -125,3 +135,12 @@ def plan_tickets(questions, questions_per_ticket, ticket_count,
                 raise ValueError(f"DP: {error}; увеличьте --max-dp-states или выберите auto/cp-sat-types") from error
 
     return report(select_types(questions, classes, pool, ticket_count, time_limit, allow_feasible, objective_mode))
+
+
+def generate_tickets_report(*args, **kwargs):
+    """Совместимый составной вызов двух этапов."""
+    return restore_tickets(plan_tickets(*args, **kwargs))
+
+
+def generate_tickets(*args, **kwargs):
+    return generate_tickets_report(*args, **kwargs).tickets

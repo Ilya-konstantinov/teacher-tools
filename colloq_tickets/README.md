@@ -11,7 +11,7 @@
 ```sh
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
-python3 main.py \
+python3 generate_tickets.py \
   --questions examples/questions_ma2.json \
   --questions-per-ticket 2 \
   --tickets 100 \
@@ -24,9 +24,9 @@ python3 main.py \
 
 `-n` — краткая запись `--questions-per-ticket`. Число вопросов может быть любым допустимым; отдельных алгоритмов для одного или двух вопросов нет.
 
-`main.py` использует локальный `.venv`, если он существует, иначе текущий Python. На NixOS запуск также подключает libstdc++ и zlib из Nix store. Входные и выходные пути считаются относительно текущей рабочей папки.
+`generate_tickets.py` и `ticket_tools.py` используют локальный `.venv`, если он существует, иначе текущий Python. На NixOS запуск также подключает libstdc++ и zlib из Nix store. Входные и выходные пути считаются относительно текущей рабочей папки.
 
-Команды: `main.py generate` (или параметры генерации сразу), `main.py print`, `main.py test`. Справка: `python3 main.py --help` и `python3 main.py print --help`.
+Основная задача: `generate_tickets.py`. Вспомогательные команды: `ticket_tools.py print` и `ticket_tools.py test`. Справка: `python3 generate_tickets.py --help` и `python3 ticket_tools.py --help`.
 
 ## Формат вопросов
 
@@ -159,7 +159,7 @@ flowchart TD
 
 ```python
 from pathlib import Path
-from src.table_io import read_questions
+from src.io import read_questions
 from src.planning import plan_tickets
 from src.reconstruction import restore_tickets
 
@@ -176,19 +176,19 @@ result = restore_tickets(plan)
 
 `plan_tickets()` возвращает `TicketPlan` со снимком банка и классами. У DP по суммам в `plan.selection.sum_plan` лежат количества билетов каждой суммы и таблицы для восстановления; конкретные вопросы ещё не выбраны. У остальных методов в `selection.types` и `selection.amounts` лежит план по типам. `restore_tickets()` подставляет вопросы и балансирует частоты внутри классов, сохраняя сложности и уникальность. Повторное восстановление одного плана воспроизводимо.
 
-`src.generation.generate_tickets_report()` объединяет оба этапа и возвращает `GenerationResult`; `src.generation.generate_tickets()` возвращает только список билетов. Прямая модель CP-SAT тоже отдаёт план общему восстановителю.
+`src.planning.generate_tickets_report()` объединяет оба этапа и возвращает `GenerationResult`; `src.planning.generate_tickets()` возвращает только список билетов. Прямая модель CP-SAT тоже отдаёт план общему восстановителю.
 
 ## Печать и разрезание
 
 ```sh
-python3 main.py print tickets_ma2_100_grouped.json
+python3 ticket_tools.py print tickets_ma2_100_grouped.json
 lualatex -interaction=nonstopmode -halt-on-error tickets_ma2_100_grouped.tex
 ```
 
 Экспортёр работает без сторонних Python-пакетов. Для сборки PDF нужен LuaLaTeX или XeLaTeX, пакеты `fontspec`, `babel/russian`, `geometry` и шрифт Liberation Serif. По умолчанию: A4, четыре билета на странице, пунктирные линии разреза. Веса и служебная статистика не печатаются.
 
 ```sh
-python3 main.py print tickets_ma2_100_grouped.json \
+python3 ticket_tools.py print tickets_ma2_100_grouped.json \
   --tickets-per-page 3 \
   --font "DejaVu Serif" \
   --title "Математический анализ"
@@ -218,19 +218,35 @@ python3 main.py print tickets_ma2_100_grouped.json \
 
 ```text
 colloq_tickets/
-├── examples/          # Демонстрационный банк и банк МА2
-├── src/               # Реализация и CLI
-├── tests/             # Проверки алгоритмов и печати
-├── main.py            # Единая точка входа
-├── requirements.txt   # OR-Tools для CP-SAT
+├── examples/
+├── src/
+├── tests/
+├── generate_tickets.py   # Основная задача
+├── ticket_tools.py       # Печать и тесты
+├── requirements.txt
 ├── README.md
 └── ALGORITHM.md
 ```
 
-В `src/` отдельно расположены выбор плана (`planning.py`), профильная DP (`sum_dp.py`, `sum_selection.py`), восстановление (`sum_reconstruction.py`, `reconstruction.py`) и остальные решатели. Общие цели определены в `objectives.py`; экспорт TeX — в `print_tickets.py`.
+В `src/` осталось десять содержательных модулей:
+
+| Модуль | Назначение |
+|---|---|
+| `models.py` | Вопросы, классы, профили и планы |
+| `problem.py` | Проверка входа, цели, группировка и типы билетов |
+| `planning.py` | Автовыбор, план и публичный API генерации |
+| `sum_dp.py` | Подсчёт вариантов по суммам и выбор сложности |
+| `type_dp.py` | Сокращения, перебор и DP по частотам |
+| `cp_sat.py` | Обе модели CP-SAT |
+| `reconstruction.py` | Комбинаторные индексы, подстановка вопросов и балансировка |
+| `io.py` | Чтение и запись JSON |
+| `printing.py` | Экспорт TeX |
+| `cli.py` | Аргументы генерации и подготовка окружения |
+
+Выбор плана и восстановление остаются самостоятельными функциями. Небольшие обёртки и вспомогательные определения объединены с модулями, которым они принадлежат.
 
 ```sh
-python3 main.py test
+python3 ticket_tools.py test
 ```
 
 Тесты сравнивают результаты с полным перебором на малых банках, проверяют группы, дробные веса, уникальность, восстановление, статусы решателя и экспорт TeX.

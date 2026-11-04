@@ -7,14 +7,14 @@ from fractions import Fraction
 from pathlib import Path
 from unittest.mock import patch
 
-from src.constraints import compatible, GROUP_MODES
-from src.generation import generate_tickets_report
+from src.problem import compatible, GROUP_MODES
+from src.planning import generate_tickets_report
 from src.models import Question
 from src.planning import plan_tickets
 from src.reconstruction import restore_tickets
-from src.sum_reconstruction import unrank_composition
-from src.table_io import read_questions
-from src.ticket_types import balanced_cost, group_questions
+from src.reconstruction import unrank_composition
+from src.io import read_questions
+from src.problem import balanced_cost, group_questions
 
 
 def candidates(questions, size, mode):
@@ -134,7 +134,7 @@ class SumSelectionTests(unittest.TestCase):
     def test_selection_does_not_restore_and_restoration_is_repeatable(self):
         questions = [Question(f'{g}_{i}', f'{g}_{i}', i + 1, str(g))
                      for g in range(4) for i in range(3)]
-        with patch('src.sum_reconstruction.materialize_types', side_effect=AssertionError('Раннее восстановление')):
+        with patch('src.reconstruction.materialize_types', side_effect=AssertionError('Раннее восстановление')):
             plan = plan_tickets(questions, 3, 17, 'different', target_weight=5)
         self.assertEqual(plan.selection.types, ())
         self.assertEqual(plan.selection.amounts, ())

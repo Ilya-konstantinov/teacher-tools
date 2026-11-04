@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from heapq import heappop, heappush
 
-from .models import Assignment, Examiner, Student
+from .data import Assignment, Examiner, Student
 
 
 @dataclass

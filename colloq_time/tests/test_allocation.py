@@ -7,8 +7,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from src.allocation import allocate
-from src.models import Examiner, Student
-from src.table_io import read_examiners, read_students, write_assignments
+from src.data import Examiner, Student
+from src.data import read_examiners, read_students, write_assignments
 
 
 class AllocationTests(unittest.TestCase):

@@ -5,13 +5,13 @@ Python 3.10+, без дополнительных библиотек. Запус
 В `examples/` приведены демонстрационные таблицы с условными именами. **Время заявок вымышленное**, только для демонстрации сортировки и дедлайна. Перед реальным распределением укажите настоящие данные.
 
 ```sh
-python3 main.py --examiners examples/examiners.tsv --students examples/students.tsv --minutes-per-student 30 --output schedule.tsv
+python3 schedule_students.py --examiners examples/examiners.tsv --students examples/students.tsv --minutes-per-student 30 --output schedule.tsv
 ```
 
 С дедлайном (в таблице студентов обязательно время каждой заявки):
 
 ```sh
-python3 main.py --examiners examples/examiners.tsv --students examples/students.tsv --deadline '01.11.2026 12:04:00' --output schedule.tsv
+python3 schedule_students.py --examiners examples/examiners.tsv --students examples/students.tsv --deadline '01.11.2026 12:04:00' --output schedule.tsv
 ```
 
 ## Входные данные
@@ -51,10 +51,10 @@ python3 main.py --examiners examples/examiners.tsv --students examples/students.
 
 ## Отчёт нагрузки
 
-`main.py workload` строит таблицу и HTML-отчёт нагрузки по расписанию:
+`schedule_tools.py workload` строит таблицу и HTML-отчёт нагрузки по расписанию:
 
 ```sh
-python3 main.py workload --schedule schedule.tsv --examiners examples/examiners.tsv --prep-minutes 40 --exam-minutes 30 --output workload.tsv
+python3 schedule_tools.py workload --schedule schedule.tsv --examiners examples/examiners.tsv --prep-minutes 40 --exam-minutes 30 --output workload.tsv
 ```
 
 ## Структура и проверки
@@ -64,17 +64,20 @@ colloq_time/
 ├── examples/       # Таблицы с условными именами
 ├── src/            # Распределение, ввод-вывод, отчёт нагрузки
 ├── tests/
-├── main.py         # Единая точка входа
+├── schedule_students.py  # Основная задача
+├── schedule_tools.py     # Нагрузка и тесты
 ├── README.md
 └── ALGORITHM.md
 ```
 
-Команды: `main.py schedule` (или параметры расписания сразу), `main.py workload`, `main.py test`. Справка: `python3 main.py --help` и `python3 main.py workload --help`.
+Основная задача: `schedule_students.py`. Вспомогательные команды: `schedule_tools.py workload` и `schedule_tools.py test`. Справка: `python3 schedule_students.py --help` и `python3 schedule_tools.py --help`.
 
 ```sh
-python3 main.py test
+python3 schedule_tools.py test
 ```
 
 Тесты проверяют вместимость, запреты на всём присутствии, подготовку, пересечение часовых границ проверки, время подачи, дедлайн, перераспределение и сравнивают небольшие случайные задачи с полным перебором.
 
 Реальные заявки и локальные результаты можно хранить в `.test/` или `local/`: они исключены из Git.
+
+Реализация состоит из четырёх модулей: `src/data.py` (модели и таблицы), `src/allocation.py` (распределение), `src/workload.py` (нагрузка), `src/cli.py` (аргументы основной задачи).
