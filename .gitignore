@@ -1,0 +1,38 @@
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local editor settings and input data
+.vscode/
+.idea/
+.DS_Store
+.env
+.env.*
+!.env.example
+.test/
+local/
+
+# Generated schedules and reports (examples remain tracked)
+/colloq_time/*.tsv
+/colloq_time/*.csv
+/colloq_time/*.html
+
+# Generated tickets and print artifacts
+/colloq_tickets/tickets*.json
+/colloq_tickets/*.tex
+/colloq_tickets/*.pdf
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+outputs/
