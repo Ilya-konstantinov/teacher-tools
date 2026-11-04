@@ -183,7 +183,7 @@ $$
 |---|---|
 | `ignore` | $P_0\le\binom{R+D-1}{D-1}$ |
 | `same` | $P_0\le\sum_{i=1}^{T}\binom{R+d_i-1}{d_i-1}$ |
-| `different` | $P_0=\displaystyle\sum_{\substack{I\subseteq\{1,\ldots,T\}\\ \lvert I\rvert=R}}\prod_{i\in I}d_i\le\binom{T}{R}D^R$ |
+| `different` | $`P_0=\displaystyle\sum_{\substack{I\subseteq\lbrace 1,\ldots,T\rbrace\\ \lvert I\rvert=R}}\prod_{i\in I}d_i\le\binom{T}{R}D^R`$ |
 
 Первые две оценки игнорируют ограничения размеров классов и могут быть завышены. В `same` темы с $n_i<R$ вообще не дают билетов. В `different` выбор темы и доступного в ней веса уже задаёт допустимый тип, поэтому приведённое выражение через $d_i$ точное.
 
@@ -199,9 +199,9 @@ $$
 
 Минимальный допустимый порог:
 
-$$
-\Delta^*=\min\left\{\Delta:\sum_{p:\delta_p\le\Delta}u_p\ge B\right\}.
-$$
+```math
+\Delta^*=\min\left\lbrace\Delta:\sum_{p:\delta_p\le\Delta}u_p\ge B\right\rbrace.
+```
 
 При меньшем пороге различных билетов не хватает. При найденном пороге можно выбрать $B$ билетов, поскольку наборы разных типов не пересекаются. Это доказывает оптимальность первого критерия без CP-SAT.
 
