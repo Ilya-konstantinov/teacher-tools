@@ -1,40 +1,21 @@
-"""Запуск: python3 main.py --help."""
-import argparse
+"""Единая точка входа: расписание, отчёт нагрузки и тесты."""
 from pathlib import Path
-
-from allocation import allocate
-from table_io import read_examiners, read_students, timestamp, write_assignments
+import sys
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Распределение студентов на коллоквиум")
-    parser.add_argument("--examiners", type=Path, required=True, help="TSV/CSV с принимающими")
-    parser.add_argument("--students", type=Path, required=True, help="TSV/CSV с заявками")
-    parser.add_argument("--output", type=Path, default=Path("schedule.tsv"))
-    timing = parser.add_mutually_exclusive_group()
-    timing.add_argument("--minutes-per-student", type=int, default=30,
-                        help="Минут на проверку одного студента, от 1 до 60 (по умолчанию 30)")
-    timing.add_argument("--capacity", type=int, help="Задать число мест на принимающего в час вручную вместо длительности")
-    parser.add_argument("--prep-minutes", type=int, default=40,
-                        help="Подготовка между приходом и проверкой (по умолчанию 40 минут)")
-    parser.add_argument("--deadline", help="Дедлайн в формате 'ДД.ММ.ГГГГ ЧЧ:ММ:СС'; все даты в одном часовом поясе")
-    args = parser.parse_args()
-    try:
-        if not 1 <= args.minutes_per_student <= 60:
-            raise ValueError("Длительность проверки должна быть от 1 до 60 минут")
-        capacity = args.capacity if args.capacity is not None else 60 // args.minutes_per_student
-        if args.output.resolve() in (args.examiners.resolve(), args.students.resolve()):
-            raise ValueError("Результат нельзя записывать поверх входной таблицы")
-        result = allocate(read_students(args.students), read_examiners(args.examiners),
-                          capacity, timestamp(args.deadline) if args.deadline else None,
-                          batch_minutes=args.minutes_per_student if args.capacity is None else None,
-                          prep_minutes=args.prep_minutes)
-        write_assignments(args.output, result)
-    except (OSError, ValueError) as error:
-        parser.error(str(error))
-    assigned = sum(item.hour is not None for item in result)
-    print(f"Распределено: {assigned}/{len(result)}. Не распределено: {len(result) - assigned}. Файл: {args.output}")
+def main():
+    args = sys.argv[1:]
+    if args in (['test'], ['--test']):
+        import unittest
+        root = Path(__file__).resolve().parent
+        unittest.main(module=None, argv=[sys.argv[0], 'discover', '-s', str(root/'tests'), '-v'])
+    elif args and args[0] == 'workload':
+        from src.workload import main as workload_main
+        workload_main(args[1:])
+    else:
+        from src.cli import main as schedule_main
+        schedule_main(args[1:] if args and args[0] == 'schedule' else args)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

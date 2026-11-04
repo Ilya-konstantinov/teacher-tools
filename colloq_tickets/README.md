@@ -2,9 +2,7 @@
 
 Генератор составляет $B$ различных билетов по $R$ вопросов, учитывая тематические группы и желаемый суммарный вес. Вопросы внутри билета не повторяются; между билетами повторения разрешены. Перестановка вопросов не создаёт новый билет.
 
-- [Алгоритмы, доказательства и асимптотики](ALGORITHMS.md).
-- [Исходный проект изменений](PROPOSAL.md). Новый порядок целей, профили тем и DP по суммам уже реализованы; локальные потоки остаются возможным продолжением.
-- [Настройки печати](PRINTING.txt).
+- [Алгоритмы, доказательства и асимптотики](ALGORITHM.md).
 
 ## Быстрый запуск
 
@@ -13,8 +11,8 @@
 ```sh
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
-python3 run.py \
-  --questions questions_ma2.json \
+python3 main.py \
+  --questions examples/questions_ma2.json \
   --questions-per-ticket 2 \
   --tickets 100 \
   --target-weight 6 \
@@ -26,7 +24,9 @@ python3 run.py \
 
 `-n` — краткая запись `--questions-per-ticket`. Число вопросов может быть любым допустимым; отдельных алгоритмов для одного или двух вопросов нет.
 
-`run.py` использует локальный `.venv`, если он существует, иначе текущий Python. На NixOS он также ищет libstdc++ и zlib в Nix store. На обычной системе можно запускать `.venv/bin/python main.py` с теми же аргументами. Входные и выходные пути считаются относительно текущей рабочей папки.
+`main.py` использует локальный `.venv`, если он существует, иначе текущий Python. На NixOS запуск также подключает libstdc++ и zlib из Nix store. Входные и выходные пути считаются относительно текущей рабочей папки.
+
+Команды: `main.py generate` (или параметры генерации сразу), `main.py print`, `main.py test`. Справка: `python3 main.py --help` и `python3 main.py print --help`.
 
 ## Формат вопросов
 
@@ -159,11 +159,11 @@ flowchart TD
 
 ```python
 from pathlib import Path
-from table_io import read_questions
-from planning import plan_tickets
-from reconstruction import restore_tickets
+from src.table_io import read_questions
+from src.planning import plan_tickets
+from src.reconstruction import restore_tickets
 
-questions = read_questions(Path("questions_ma2.json"))
+questions = read_questions(Path("examples/questions_ma2.json"))
 plan = plan_tickets(
     questions,
     questions_per_ticket=2,
@@ -176,47 +176,65 @@ result = restore_tickets(plan)
 
 `plan_tickets()` возвращает `TicketPlan` со снимком банка и классами. У DP по суммам в `plan.selection.sum_plan` лежат количества билетов каждой суммы и таблицы для восстановления; конкретные вопросы ещё не выбраны. У остальных методов в `selection.types` и `selection.amounts` лежит план по типам. `restore_tickets()` подставляет вопросы и балансирует частоты внутри классов, сохраняя сложности и уникальность. Повторное восстановление одного плана воспроизводимо.
 
-`generation.generate_tickets_report()` объединяет оба этапа и возвращает `GenerationResult`; `generation.generate_tickets()` возвращает только список билетов. Прямая модель CP-SAT тоже отдаёт план общему восстановителю.
+`src.generation.generate_tickets_report()` объединяет оба этапа и возвращает `GenerationResult`; `src.generation.generate_tickets()` возвращает только список билетов. Прямая модель CP-SAT тоже отдаёт план общему восстановителю.
 
 ## Печать и разрезание
 
 ```sh
-python3 print_tickets.py tickets_ma2_100_grouped.json
+python3 main.py print tickets_ma2_100_grouped.json
 lualatex -interaction=nonstopmode -halt-on-error tickets_ma2_100_grouped.tex
 ```
 
 Экспортёр работает без сторонних Python-пакетов. Для сборки PDF нужен LuaLaTeX или XeLaTeX, пакеты `fontspec`, `babel/russian`, `geometry` и шрифт Liberation Serif. По умолчанию: A4, четыре билета на странице, пунктирные линии разреза. Веса и служебная статистика не печатаются.
 
 ```sh
-python3 print_tickets.py tickets_ma2_100_grouped.json \
+python3 main.py print tickets_ma2_100_grouped.json \
   --tickets-per-page 3 \
   --font "DejaVu Serif" \
   --title "Математический анализ"
 ```
 
-При большом числе вопросов уменьшайте число билетов на странице и проверяйте вёрстку PDF. Входной `text` трактуется как обычный текст: произвольные TeX-команды не исполняются. Остальные параметры описаны в [PRINTING.txt](PRINTING.txt).
+При большом числе вопросов уменьшайте число билетов на странице и проверяйте вёрстку PDF. Входной `text` трактуется как обычный текст: произвольные TeX-команды не исполняются.
+
+Параметры экспорта:
+
+| Параметр | Назначение / по умолчанию |
+|---|---|
+| `-o` | Путь TeX; по умолчанию рядом с JSON с расширением `.tex` |
+| `--tickets-per-page` | От 1 до 8 билетов на листе; по умолчанию 4 |
+| `--margin-mm` | Поля, 12 мм |
+| `--font-size` | Размер шрифта, 12 pt |
+| `--font` | Шрифт с кириллицей, Liberation Serif |
+| `--title` | Название курса |
+| `--institution` | Название организации, ФКН ВШЭ |
+
+На каждом билете печатаются организация, курс, номер и все вопросы. Спецсимволы TeX экранируются, символы σ, δ, β и верхний индекс ⁿ переводятся в математические команды. pdfLaTeX для этого шаблона не подходит. При неполной последней странице оставшаяся часть листа остаётся пустой.
+
+Автоматического уменьшения шрифта для длинного текста нет. Сообщения `Overfull vbox/hbox` в журнале сборки означают, что нужно увеличить доступное место: например, уменьшить число билетов на странице. Печатайте A4 в масштабе 100%, односторонне; разрезайте по пунктирным линиям.
 
 Результаты генерации и печати не хранятся в Git. Генерация нового JSON сама по себе не обновляет его печатную версию: экспортируйте TeX и соберите PDF заново.
 
-## Код и проверки
+## Структура и проверки
 
-| Файлы | Ответственность |
-|---|---|
-| `models.py`, `constraints.py`, `table_io.py` | Модели, проверка входа, группы, JSON |
-| `ticket_types.py` | Классы, типы, вместимости, порог отклонения |
-| `objectives.py` | Порядок целей и гарантии результата |
-| `profiles.py`, `sum_models.py` | Гистограммы тем и типизированный план сумм |
-| `sum_dp.py`, `sum_selection.py` | Построение таблиц способов и выбор сложности |
-| `sum_reconstruction.py` | Разбор комбинаторных индексов в количества исходных типов |
-| `reduction.py` | Дополнение, компоненты, независимые координаты |
-| `enumeration_selection.py`, `dp_selection.py`, `cp_selection.py` | Выбор количеств типов |
-| `planning.py`, `reconstruction.py`, `generation.py` | План, восстановление, совместный API |
-| `main.py`, `run.py`, `print_tickets.py` | CLI, окружение, экспорт TeX |
+```text
+colloq_tickets/
+├── examples/          # Демонстрационный банк и банк МА2
+├── src/               # Реализация и CLI
+├── tests/             # Проверки алгоритмов и печати
+├── main.py            # Единая точка входа
+├── requirements.txt   # OR-Tools для CP-SAT
+├── README.md
+└── ALGORITHM.md
+```
+
+В `src/` отдельно расположены выбор плана (`planning.py`), профильная DP (`sum_dp.py`, `sum_selection.py`), восстановление (`sum_reconstruction.py`, `reconstruction.py`) и остальные решатели. Общие цели определены в `objectives.py`; экспорт TeX — в `print_tickets.py`.
 
 ```sh
-python3 run.py --test
+python3 main.py test
 ```
 
 Тесты сравнивают результаты с полным перебором на малых банках, проверяют группы, дробные веса, уникальность, восстановление, статусы решателя и экспорт TeX.
 
 Проверки включают оба режима целей и все ручные решатели. Для малых банков считаются все допустимые билеты, проверяются их количества по суммам и восстановление всех комбинаторных индексов, в том числе для повторяющихся профилей. Отдельно проверяются превышение бюджетов, переходы `auto`, большие вместимости, произвольный размер билета и статусы частично доказанного CP-SAT.
+
+Реальные локальные данные можно хранить в `.test/` или `local/`: эти каталоги исключены из Git.
