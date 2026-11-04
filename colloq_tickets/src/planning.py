@@ -2,9 +2,11 @@
 import math
 from dataclasses import replace
 from fractions import Fraction
+from .config import load_settings
 from .cp_sat import select_direct, select_types
 from .models import TicketPlan, TypeSelection
 from .problem import (
+    ALGORITHMS,
     GROUP_MODES,
     OBJECTIVE_MODES,
     SearchLimit,
@@ -24,19 +26,25 @@ from .type_dp import (
 )
 
 
-ALGORITHMS = ("auto", "sum-dp", "enumerate", "dp", "cp-sat-types", "cp-sat")
-
-
 def plan_tickets(questions, questions_per_ticket, ticket_count,
-                 group_mode="ignore", max_search_nodes=100_000, *,
-                 target_weight, algorithm="auto", time_limit=30,
-                 allow_feasible=False, max_dp_states=100_000,
-                 objective_mode="weight-first") -> TicketPlan:
+                 group_mode=None, max_search_nodes=None, *,
+                 target_weight, algorithm=None, time_limit=None,
+                 allow_feasible=None, max_dp_states=None,
+                 objective_mode=None, settings=None) -> TicketPlan:
     """Выбор плана: по сложности (по умолчанию) либо со строгими частотами.
 
     auto пробует профильную DP по суммам для weight-first. При превышении
     бюджета переходит к типам, затем к прямой CP-SAT-модели.
     """
+    settings = settings if settings is not None else load_settings()
+    defaults, search = settings.generation, settings.search
+    group_mode = defaults.group_mode if group_mode is None else group_mode
+    max_search_nodes = defaults.max_search_nodes if max_search_nodes is None else max_search_nodes
+    algorithm = defaults.algorithm if algorithm is None else algorithm
+    time_limit = defaults.time_limit if time_limit is None else time_limit
+    allow_feasible = defaults.allow_feasible if allow_feasible is None else allow_feasible
+    max_dp_states = defaults.max_dp_states if max_dp_states is None else max_dp_states
+    objective_mode = defaults.objective_mode if objective_mode is None else objective_mode
     validate_questions(questions)
     if objective_mode not in OBJECTIVE_MODES:
         raise ValueError(f"Неизвестный режим целей: {objective_mode}")
@@ -78,14 +86,14 @@ def plan_tickets(questions, questions_per_ticket, ticket_count,
 
     def direct():
         return report(select_direct(questions, classes, questions_per_ticket, ticket_count,
-                                    group_mode, target, time_limit, allow_feasible, objective_mode))
+                                    group_mode, target, time_limit, allow_feasible, objective_mode, search=search))
 
     if algorithm == "cp-sat":
         return direct()
     if objective_mode == "weight-first" and algorithm in ("auto", "sum-dp"):
         try:
             return report(select_sums(classes, questions_per_ticket, ticket_count,
-                                      group_mode, target, max_dp_states))
+                                      group_mode, target, max_dp_states, search=search))
         except SearchLimit as error:
             if algorithm == "sum-dp":
                 raise ValueError(f"DP: {error}; увеличьте --max-dp-states или выберите auto") from error
@@ -117,7 +125,7 @@ def plan_tickets(questions, questions_per_ticket, ticket_count,
     reduced = reduce_counts(classes, pool, ticket_count)
     plan_bound = enumeration_bound(reduced, max_search_nodes)
     if algorithm == "enumerate" or (algorithm == "auto" and
-            plan_bound * max(1, len(pool)) <= min(10_000, max_search_nodes)):
+            plan_bound * max(1, len(pool)) <= min(search.auto_enumeration_work_limit, max_search_nodes)):
         try:
             return finish(select_types_enumeration(classes, pool, ticket_count, max_search_nodes, objective_mode),
                           "type-enumeration")
@@ -127,14 +135,14 @@ def plan_tickets(questions, questions_per_ticket, ticket_count,
 
     if algorithm in ("auto", "dp"):
         try:
-            analysis = analyze_dp(classes, pool, ticket_count, max_work=10 * max_dp_states)
+            analysis = analyze_dp(classes, pool, ticket_count, max_work=search.dp_work_multiplier * max_dp_states)
             if algorithm == "dp" or analysis.state_bound <= max_dp_states:
-                return finish(select_types_dp(classes, pool, ticket_count, max_dp_states, analysis, objective_mode), "type-dp")
+                return finish(select_types_dp(classes, pool, ticket_count, max_dp_states, analysis, objective_mode, work_multiplier=search.dp_work_multiplier), "type-dp")
         except SearchLimit as error:
             if algorithm == "dp":
                 raise ValueError(f"DP: {error}; увеличьте --max-dp-states или выберите auto/cp-sat-types") from error
 
-    return report(select_types(questions, classes, pool, ticket_count, time_limit, allow_feasible, objective_mode))
+    return report(select_types(questions, classes, pool, ticket_count, time_limit, allow_feasible, objective_mode, search=search))
 
 
 def generate_tickets_report(*args, **kwargs):

@@ -6,6 +6,19 @@ from datetime import datetime
 from pathlib import Path
 
 
+MINUTES_PER_HOUR = 60
+HOURS_PER_DAY = 24
+MINUTES_PER_DAY = HOURS_PER_DAY * MINUTES_PER_HOUR
+PREFERENCE_COUNT = 3
+# Первые приоритеты имеют штрафы 0, 1, 2; далее любое допустимое время.
+OUTSIDE_PREFERENCE_PENALTY = PREFERENCE_COUNT
+UNASSIGNED_PENALTY = OUTSIDE_PREFERENCE_PENALTY + 1
+PRIORITY_RADIX = UNASSIGNED_PENALTY + 1
+CSV_SNIFF_BYTES = 8192
+TIMESTAMP_FORMATS = ("%d.%m.%Y %H:%M:%S", "%d.%m.%Y %H:%M", "%Y-%m-%d %H:%M:%S",
+                     "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S")
+
+
 @dataclass(frozen=True)
 class Examiner:
     name: str
@@ -32,7 +45,7 @@ class Assignment:
 
 def read_table(path: Path) -> list[list[str]]:
     with path.open(encoding="utf-8-sig", newline="") as stream:
-        sample = stream.read(8192)
+        sample = stream.read(CSV_SNIFF_BYTES)
         stream.seek(0)
         # В TSV запятые внутри списка часов не являются разделителями колонок.
         delimiter = "\t" if "\t" in sample else ";" if ";" in sample else ","
@@ -44,7 +57,7 @@ def hour(value: str) -> int:
     if not re.fullmatch(r"\d{1,2}(?::00)?", value.strip()):
         raise ValueError(f"Некорректный час: {value!r}")
     result = int(value.split(":")[0])
-    if not 0 <= result <= 23:
+    if not 0 <= result < HOURS_PER_DAY:
         raise ValueError(f"Час вне диапазона 0–23: {value!r}")
     return result
 
@@ -54,8 +67,7 @@ def hours(value: str) -> tuple[int, ...]:
 
 
 def timestamp(value: str) -> datetime:
-    for fmt in ("%d.%m.%Y %H:%M:%S", "%d.%m.%Y %H:%M", "%Y-%m-%d %H:%M:%S",
-                "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S"):
+    for fmt in TIMESTAMP_FORMATS:
         try:
             return datetime.strptime(value, fmt)
         except ValueError:
@@ -84,7 +96,7 @@ def read_students(path: Path) -> list[Student]:
     if not rows:
         raise ValueError("Пустая таблица студентов")
     header = [cell.casefold() for cell in rows[0]]
-    required = ["фио", "группа", "приоритет 1", "приоритет 2", "приоритет 3",
+    required = ["фио", "группа", *(f"приоритет {i}" for i in range(1, PREFERENCE_COUNT + 1)),
                 "в какое время вы точно не сможете"]
     missing = [name for name in required if name not in header]
     if missing:
@@ -103,8 +115,8 @@ def read_students(path: Path) -> list[Student]:
         if (name, group) in seen:
             raise ValueError(f"Повтор студента: {name}, группа {group}")
         seen.add((name, group))
-        result.append(Student(name, group, tuple(hour(v) if v else None for v in rest[:3]),
-                              frozenset(hours(rest[3])), timestamp(row[time_index]) if time_index is not None else None))
+        result.append(Student(name, group, tuple(hour(v) if v else None for v in rest[:PREFERENCE_COUNT]),
+                              frozenset(hours(rest[PREFERENCE_COUNT])), timestamp(row[time_index]) if time_index is not None else None))
     return result
 
 
@@ -112,10 +124,10 @@ def write_assignments(path: Path, assignments: list[Assignment]) -> None:
     with path.open("w", encoding="utf-8-sig", newline="") as stream:
         writer = csv.writer(stream, delimiter="\t")
         writer.writerow(["Время прихода", "ФИО", "Группа", "Приоритет", "Причина"])
-        for item in sorted(assignments, key=lambda a: (a.start_minute if a.start_minute is not None else 1440,
+        for item in sorted(assignments, key=lambda a: (a.start_minute if a.start_minute is not None else MINUTES_PER_DAY,
                                                        a.student.name, a.student.group)):
             student = item.student
             start = item.start_minute
-            writer.writerow([f"{start // 60:02d}:{start % 60:02d}" if start is not None else "",
+            writer.writerow([f"{start // MINUTES_PER_HOUR:02d}:{start % MINUTES_PER_HOUR:02d}" if start is not None else "",
                              student.name, student.group,
                              item.priority if item.priority is not None else "", item.reason])

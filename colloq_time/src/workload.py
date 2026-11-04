@@ -8,11 +8,15 @@ import csv
 from html import escape
 from pathlib import Path
 
-from .data import read_examiners
+from .config import settings_for_cli
+from .data import MINUTES_PER_HOUR, read_examiners
+
+PERCENT_SCALE = 100
+LOAD_PERCENT_DECIMALS = 1
 
 
 def clock(minute: int) -> str:
-    return f"{minute // 60:02d}:{minute % 60:02d}"
+    return f"{minute // MINUTES_PER_HOUR:02d}:{minute % MINUTES_PER_HOUR:02d}"
 
 
 def analyze(schedule: Path, examiners_path: Path, prep_minutes: int, exam_minutes: int):
@@ -25,15 +29,15 @@ def analyze(schedule: Path, examiners_path: Path, prep_minutes: int, exam_minute
             if not row["Время прихода"]:
                 continue
             h, m = map(int, row["Время прихода"].split(":"))
-            start = h * 60 + m + prep_minutes
+            start = h * MINUTES_PER_HOUR + m + prep_minutes
             intervals.append((start, start + exam_minutes))
     boundaries = {t for interval in intervals for t in interval}
-    boundaries.update(t for examiner in examiners for h in examiner.hours for t in (h * 60, (h + 1) * 60))
+    boundaries.update(t for examiner in examiners for h in examiner.hours for t in (h * MINUTES_PER_HOUR, (h + 1) * MINUTES_PER_HOUR))
     boundaries = sorted(boundaries)
     rows = []
     for start, end in zip(boundaries, boundaries[1:]):
         demand = sum(a <= start < b for a, b in intervals)
-        available = sum(start // 60 in examiner.hours for examiner in examiners)
+        available = sum(start // MINUTES_PER_HOUR in examiner.hours for examiner in examiners)
         ratio = demand / available if available else (float("inf") if demand else 0)
         rows.append((start, end, demand, available, ratio))
     return rows, len(intervals)
@@ -41,11 +45,13 @@ def analyze(schedule: Path, examiners_path: Path, prep_minutes: int, exam_minute
 
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    settings = settings_for_cli(parser, argv)
+    appearance = settings.workload
     parser.add_argument("--schedule", type=Path, required=True)
     parser.add_argument("--examiners", type=Path, required=True)
-    parser.add_argument("--prep-minutes", type=int, default=40)
-    parser.add_argument("--exam-minutes", type=int, default=30)
-    parser.add_argument("--output", type=Path, default=Path("workload.tsv"))
+    parser.add_argument("--prep-minutes", type=int, default=settings.schedule.prep_minutes)
+    parser.add_argument("--exam-minutes", type=int, default=settings.schedule.minutes_per_student)
+    parser.add_argument("--output", type=Path, default=Path(appearance.output))
     args = parser.parse_args(argv)
     if args.output.resolve() in (args.schedule.resolve(), args.examiners.resolve()):
         parser.error("Отчёт нельзя писать поверх входного файла")
@@ -55,12 +61,14 @@ def main(argv=None) -> None:
         writer.writerow(["С", "До", "Одновременно проверок", "Принимающих", "Нагрузка, %", "Нехватка принимающих"])
         for start, end, demand, available, ratio in rows:
             writer.writerow([clock(start), clock(end), demand, available,
-                             round(ratio * 100, 1) if available else ("Нет принимающих" if demand else 0),
+                             round(ratio * PERCENT_SCALE, LOAD_PERCENT_DECIMALS) if available else ("Нет принимающих" if demand else 0),
                              max(0, demand - available)])
     table = []
     for start, end, demand, available, ratio in rows:
         label = f"{ratio:.0%}" if available else ("∞" if demand else "—")
-        color = "#fecaca" if demand > available else "#fef08a" if ratio >= .9 else "#bbf7d0" if demand else "#f3f4f6"
+        color = (appearance.overload_color if demand > available else
+                 appearance.warning_color if ratio >= appearance.warning_ratio else
+                 appearance.normal_color if demand else appearance.idle_color)
         table.append(f'<tr style="background:{color}"><td>{clock(start)}–{clock(end)}</td>'
                      f'<td>{demand}</td><td>{available}</td><td>{label}</td><td>{max(0,demand-available)}</td></tr>')
     page = ('<!doctype html><html lang="ru"><meta charset="utf-8"><title>Нагрузка на коллоквиуме</title>'

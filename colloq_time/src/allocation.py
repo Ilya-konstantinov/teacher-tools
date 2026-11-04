@@ -3,7 +3,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from heapq import heappop, heappush
 
-from .data import Assignment, Examiner, Student
+from .data import (Assignment, Examiner, Student, MINUTES_PER_HOUR,
+                   OUTSIDE_PREFERENCE_PENALTY, UNASSIGNED_PENALTY, PRIORITY_RADIX)
+
+# Совместимость Python API: CLI берёт свои значения из config.json.
+DEFAULT_API_CAPACITY = 2
+DEFAULT_API_PREP_MINUTES = 0
 
 
 @dataclass
@@ -23,24 +28,24 @@ def batch_capacities(examiners: list[Examiner], capacity: int, batch_minutes: in
     result = {}
     for h in range(min(available_hours), max(available_hours) + 1):
         for batch in range(capacity):
-            arrival = h * 60 + batch * batch_minutes
+            arrival = h * MINUTES_PER_HOUR + batch * batch_minutes
             start = arrival + prep_minutes
             end = start + batch_minutes
-            needed_hours = set(range(start // 60, (end - 1) // 60 + 1))
+            needed_hours = set(range(start // MINUTES_PER_HOUR, (end - 1) // MINUTES_PER_HOUR + 1))
             count = sum(needed_hours <= set(e.hours) for e in examiners)
             if count:
                 result[arrival] = count
     return result
 
 
-def allocate(students: list[Student], examiners: list[Examiner], capacity: int = 2,
+def allocate(students: list[Student], examiners: list[Examiner], capacity: int = DEFAULT_API_CAPACITY,
              deadline: datetime | None = None, *, batch_minutes: int | None = None,
-             prep_minutes: int = 0) -> list[Assignment]:
-    if not 1 <= capacity <= 60:
+             prep_minutes: int = DEFAULT_API_PREP_MINUTES) -> list[Assignment]:
+    if not 1 <= capacity <= MINUTES_PER_HOUR:
         raise ValueError("Вместимость должна быть от 1 до 60")
     if batch_minutes is None:
-        batch_minutes = 60 // capacity
-    if not 1 <= batch_minutes <= 60 or capacity * batch_minutes > 60:
+        batch_minutes = MINUTES_PER_HOUR // capacity
+    if not 1 <= batch_minutes <= MINUTES_PER_HOUR or capacity * batch_minutes > MINUTES_PER_HOUR:
         raise ValueError("Все проверки одного принимающего должны укладываться в час")
     if not isinstance(prep_minutes, int) or prep_minutes < 0:
         raise ValueError("Время подготовки должно быть неотрицательным целым числом")
@@ -65,10 +70,10 @@ def allocate(students: list[Student], examiners: list[Examiner], capacity: int =
         graph[b].append(Edge(a, len(graph[a]) - 1, 0, -cost))
         return edge
 
-    # Разряды по основанию 5 дают точное преимущество ранним заявкам,
-    # а не приблизительную сумму весов. Нераспределение имеет ранг 4.
-    scale = 5 ** n
-    late_cost = (3 * n + 1) * scale
+    # Разряды в PRIORITY_RADIX дают точное преимущество ранним заявкам.
+    # Нераспределение имеет худший ранг UNASSIGNED_PENALTY.
+    scale = PRIORITY_RADIX ** n
+    late_cost = (OUTSIDE_PREFERENCE_PENALTY * n + 1) * scale
     # После всех критериев по приоритетам более ранние заявки получают
     # более раннее время прихода. Младшие разряды не меняют прежнюю оптимизацию.
     time_base = len(arrivals) + 1
@@ -78,18 +83,18 @@ def allocate(students: list[Student], examiners: list[Examiner], capacity: int =
         add(n + j, sink, capacity_by_batch[arrival], 0)
     for i, student in enumerate(students):
         add(source, i, 1, 0)
-        weight = 5 ** (n - ranks[i] - 1)
+        weight = PRIORITY_RADIX ** (n - ranks[i] - 1)
         time_weight = time_base ** (n - ranks[i] - 1)
         for j, arrival in enumerate(arrivals):
-            h = arrival // 60
+            h = arrival // MINUTES_PER_HOUR
             # Студент присутствует от прихода до конца проверки, включая
             # подготовку. Запрет любого пересечённого часа исключает батч.
             end = arrival + prep_minutes + batch_minutes
-            attendance_hours = range(h, (end - 1) // 60 + 1)
+            attendance_hours = range(h, (end - 1) // MINUTES_PER_HOUR + 1)
             if any(hour in student.unavailable for hour in attendance_hours):
                 continue
-            penalty = student.priorities.index(h) if h in student.priorities and not late[i] else 3
-            cost = penalty * scale + (penalty - 4) * weight + (late_cost if late[i] else 0)
+            penalty = student.priorities.index(h) if h in student.priorities and not late[i] else OUTSIDE_PREFERENCE_PENALTY
+            cost = penalty * scale + (penalty - UNASSIGNED_PENALTY) * weight + (late_cost if late[i] else 0)
             cost = cost * time_scale + j * time_weight
             choices[i].append((add(i, n + j, 1, cost), arrival, penalty))
 
@@ -142,7 +147,7 @@ def allocate(students: list[Student], examiners: list[Examiner], capacity: int =
         selected = next((choice for choice in choices[i] if choice[0].capacity == 0), None)
         if selected:
             _, arrival, penalty = selected
-            result.append(Assignment(student, arrival // 60, penalty + 1 if penalty < 3 else None,
+            result.append(Assignment(student, arrival // MINUTES_PER_HOUR, penalty + 1 if penalty < OUTSIDE_PREFERENCE_PENALTY else None,
                                      "После дедлайна: пожелания не учитывались" if late[i] else "",
                                      arrival))
         else:

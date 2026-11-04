@@ -8,6 +8,8 @@ from types import MappingProxyType
 from .models import Question, QuestionClass, TicketType, TopicProfile
 
 
+ALGORITHMS = ("auto", "sum-dp", "enumerate", "dp", "cp-sat-types", "cp-sat")
+
 GROUP_MODES = ("different", "same", "ignore")
 
 

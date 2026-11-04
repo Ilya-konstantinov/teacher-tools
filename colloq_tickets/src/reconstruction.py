@@ -7,6 +7,9 @@ from random import Random
 from .models import GenerationResult, Ticket, TicketPlan, TicketType
 
 
+HEAP_REBUILD_FACTOR = 4  # Ограничивает накопление устаревших элементов ленивых куч.
+
+
 def unrank_composition(plan, total, rank):
     """Разобрать индекс конкретного билета до состава исходных классов.
 
@@ -88,7 +91,7 @@ def materialize_types(sum_plan, classes, count, target):
     повторов, без смещения к началу банка, без материализации всего пула.
     Фиксированный seed делает повторное восстановление воспроизводимым.
     """
-    rng = Random(0)
+    rng = Random(sum_plan.random_seed)
     amounts = Counter()
     for total, selected in sum_plan.amounts:
         capacity = sum_plan.root.table[sum_plan.size, total]
@@ -190,7 +193,7 @@ def realize(questions, classes, pool, amounts):
                 heappush(lows, (degrees[i], i))
                 heappush(highs, (-degrees[i], i))
             # Ограничиваем память ленивых куч; перестроение амортизировано.
-            if max(len(lows), len(highs)) > 4 * len(item.members):
+            if max(len(lows), len(highs)) > HEAP_REBUILD_FACTOR * len(item.members):
                 lows = [(degrees[i], i) for i in item.members]
                 highs = [(-degrees[i], i) for i in item.members]
                 heapify(lows)

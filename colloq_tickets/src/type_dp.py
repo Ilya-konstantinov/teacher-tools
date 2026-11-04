@@ -174,7 +174,7 @@ class DPAnalysis:
         return max((1 + len(c.projection.tracked) for c in self.components), default=0)
 
 
-def analyze_dp(classes, pool, count, max_work=1_000_000):
+def analyze_dp(classes, pool, count, *, max_work):
     problem = reduce_counts(classes, pool, count)
     result = []
     for indices in components(pool):
@@ -187,14 +187,15 @@ def analyze_dp(classes, pool, count, max_work=1_000_000):
 
 
 class _Budget:
-    def __init__(self, max_states):
+    def __init__(self, max_states, work_multiplier):
         self.max_states = max_states
+        self.transition_limit = work_multiplier * max_states
         self.transitions = 0
 
     def step(self):
         self.transitions += 1
-        if self.transitions > 10 * self.max_states:
-            raise SearchLimit("Превышен бюджет переходов DP (10 × max_dp_states)")
+        if self.transitions > self.transition_limit:
+            raise SearchLimit(f"Превышен бюджет переходов DP ({self.transition_limit})")
 
     def check(self, states):
         if len(states) > self.max_states:
@@ -264,12 +265,12 @@ def _table(classes, component, problem, budget, require_all, objective_mode):
     return table
 
 
-def select_types_dp(classes, pool, count, max_states, analysis=None, objective_mode="balanced"):
-    analysis = analysis or analyze_dp(classes, pool, count, max_work=10 * max_states)
+def select_types_dp(classes, pool, count, max_states, analysis=None, objective_mode="balanced", *, work_multiplier):
+    analysis = analysis or analyze_dp(classes, pool, count, max_work=work_multiplier * max_states)
     problem = analysis.problem
     if problem.count == 0:
         return problem.restore([0] * len(pool))
-    budget = _Budget(max_states)
+    budget = _Budget(max_states, work_multiplier)
     if len(analysis.components) == 1:
         component = analysis.components[0]
         table = _table(classes, component, problem, budget, require_all=True, objective_mode=objective_mode)

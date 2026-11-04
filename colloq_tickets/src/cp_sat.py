@@ -9,6 +9,10 @@ from .models import Question, TicketType, TypeSelection
 from .problem import balanced_cost
 
 
+# Запас до границы int64 для сумм и промежуточных выражений модели.
+CP_SAT_SAFE_INTEGER_LIMIT = 1 << 60
+
+
 def _cp_model():
     try:
         from ortools.sat.python import cp_model
@@ -22,7 +26,7 @@ def _cp_model():
 def _integers(values: list[Fraction], multiplier: int) -> list[int]:
     denominator = lcm(*(v.denominator for v in values))
     result = [int(v * denominator) for v in values]
-    if sum(abs(v) for v in result) * max(1, multiplier) >= 2 ** 60:
+    if sum(abs(v) for v in result) * max(1, multiplier) >= CP_SAT_SAFE_INTEGER_LIMIT:
         raise ValueError("Слишком большие веса или слишком много знаков после запятой для CP-SAT; "
                          "сократите точность входных весов")
     return result
@@ -52,7 +56,7 @@ def _frequency_objective(model, columns, ticket_count):
     return sum(squares)
 
 
-def _solve(model, objectives, extract, time_limit, allow_feasible, proven=0):
+def _solve(model, objectives, extract, time_limit, allow_feasible, proven=0, *, search):
     cp_model = _cp_model()
     objective_count = proven + len(objectives)
     deadline = perf_counter() + time_limit
@@ -64,8 +68,8 @@ def _solve(model, objectives, extract, time_limit, allow_feasible, proven=0):
         model.minimize(objective)
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = remaining
-        solver.parameters.num_search_workers = 1
-        solver.parameters.random_seed = 0
+        solver.parameters.num_search_workers = search.cp_sat_workers
+        solver.parameters.random_seed = search.random_seed
         status = solver.solve(model)
         if status == cp_model.MODEL_INVALID:
             raise ValueError("Некорректная модель CP-SAT: " + model.validate())
@@ -86,7 +90,7 @@ def _solve(model, objectives, extract, time_limit, allow_feasible, proven=0):
                      "чтобы сохранить найденный допустимый результат с отметкой optimal=false")
 
 
-def select_types(questions, classes, pool, ticket_count, time_limit, allow_feasible, objective_mode="balanced"):
+def select_types(questions, classes, pool, ticket_count, time_limit, allow_feasible, objective_mode="balanced", *, search):
     """Одна целочисленная переменная на тип (вес × тематическая группа)."""
     cp_model = _cp_model()
     model = cp_model.CpModel()
@@ -96,7 +100,7 @@ def select_types(questions, classes, pool, ticket_count, time_limit, allow_feasi
     columns = [[] for _ in classes]
     bounds = [0] * len(classes)
     size = sum(amount for _, amount in pool[0].composition)
-    if size * ticket_count ** 2 >= 2 ** 60:
+    if size * ticket_count ** 2 >= CP_SAT_SAFE_INTEGER_LIMIT:
         raise ValueError("Слишком большое число мест для целочисленной модели CP-SAT")
     for variable, pattern in zip(selected, pool):
         for i, amount in pattern.composition:
@@ -125,7 +129,7 @@ def select_types(questions, classes, pool, ticket_count, time_limit, allow_feasi
 
     # Минимакс уже доказан порогом; решаем оставшиеся цели выбранного режима.
     return _solve(model, [frequency, deviation_sum] if objective_mode == "balanced" else [deviation_sum],
-                  extract, time_limit, allow_feasible, proven=1)
+                  extract, time_limit, allow_feasible, proven=1, search=search)
 
 
 def _strict_lex_order(model, left, right, index):
@@ -145,7 +149,7 @@ def _strict_lex_order(model, left, right, index):
 
 
 def select_direct(questions: list[Question], classes, size: int, ticket_count: int, group_mode: str,
-                  target: Fraction, time_limit: float, allow_feasible: bool, objective_mode="balanced"):
+                  target: Fraction, time_limit: float, allow_feasible: bool, objective_mode="balanced", *, search):
     """Большие банки: булевы «вопрос в билете», без перечисления сочетаний."""
     cp_model = _cp_model()
     model = cp_model.CpModel()
@@ -199,4 +203,4 @@ def select_direct(questions: list[Question], classes, size: int, ticket_count: i
 
     objectives = ([worst, frequency, sum(deviations)] if objective_mode == "balanced"
                   else [worst, sum(deviations)])
-    return _solve(model, objectives, extract, time_limit, allow_feasible)
+    return _solve(model, objectives, extract, time_limit, allow_feasible, search=search)

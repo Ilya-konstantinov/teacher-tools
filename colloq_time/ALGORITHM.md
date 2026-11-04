@@ -2,6 +2,8 @@
 
 Реализация — [src/allocation.py](src/allocation.py). Форматы таблиц и команды запуска — в [README.md](README.md).
 
+Настройки длительностей CLI находятся в [config.json](config.json). Единицы времени и ранги предпочтений именованы в `src/data.py`: `MINUTES_PER_HOUR`, `OUTSIDE_PREFERENCE_PENALTY`, `UNASSIGNED_PENALTY`, `PRIORITY_RADIX`. Основание кодирования выводится из худшего ранга, чтобы изменение констант не рассогласовало формулу стоимости.
+
 ## Обозначения
 
 | Обозначение | Смысл |

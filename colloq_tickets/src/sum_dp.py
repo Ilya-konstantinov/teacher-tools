@@ -7,16 +7,17 @@ from .problem import SearchLimit, group_profiles
 
 
 class SumTableBuilder:
-    def __init__(self, size, budget):
+    def __init__(self, size, budget, work_multiplier):
         self.size = size
         self.budget = budget
+        self.transition_limit = work_multiplier * budget
         self.states = 0
         self.transitions = 0
         self.products = {}
 
     def step(self):
         self.transitions += 1
-        if self.transitions > 10 * self.budget:
+        if self.transitions > self.transition_limit:
             raise SearchLimit('Превышен бюджет переходов DP по суммам')
 
     def freeze(self, table):
@@ -90,9 +91,9 @@ class SumTableBuilder:
         return build(copies)
 
 
-def build_sum_table(classes, size, mode, max_states):
+def build_sum_table(classes, size, mode, max_states, *, work_multiplier):
     profiles = group_profiles(classes)
-    builder = SumTableBuilder(size, max_states)
+    builder = SumTableBuilder(size, max_states, work_multiplier)
     topic_count = sum(len(p.members) for p in profiles)
     mandatory = mode == 'different' and size == topic_count
     nodes = []
@@ -163,13 +164,13 @@ def choose_sums(table, size, count, target):
 
 
 
-def select_sums(classes, size, count, mode, target, max_states):
-    root, profiles, diagnostics = build_sum_table(classes, size, mode, max_states)
+def select_sums(classes, size, count, mode, target, max_states, *, search):
+    root, profiles, diagnostics = build_sum_table(classes, size, mode, max_states, work_multiplier=search.dp_work_multiplier)
     amounts = choose_sums(root.table, size, count, target)
     return TypeSelection((), (), "profile-sum-dp", proven_objectives=2, types_enumerated=False,
                          objective_mode="weight-first", objective_count=2,
                          frequency_guarantee="within-class", diagnostics=diagnostics,
-                         sum_plan=SumPlan(root, profiles, amounts, size))
+                         sum_plan=SumPlan(root, profiles, amounts, size, search.random_seed))
 
 
 def select_weight_types(pool, count):

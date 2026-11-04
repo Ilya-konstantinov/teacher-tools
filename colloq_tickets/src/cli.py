@@ -28,29 +28,32 @@ def bootstrap(entry: Path):
 
 
 def main(argv=None) -> None:
+    from .config import settings_for_cli
     from .io import read_questions, write_tickets
     from .planning import ALGORITHMS, generate_tickets_report
     from .problem import GROUP_MODES, OBJECTIVES, OBJECTIVE_MODES
 
     parser = argparse.ArgumentParser(epilog='Другие команды: ticket_tools.py print --help; ticket_tools.py test.', description="Генерация билетов с выравниванием сложности")
+    settings = settings_for_cli(parser, argv)
+    defaults = settings.generation
     parser.add_argument("--questions", type=Path, required=True, help="JSON с банком вопросов")
     parser.add_argument("--questions-per-ticket", "-n", type=int, required=True)
     parser.add_argument("--tickets", type=int, required=True, help="Число различных билетов")
     parser.add_argument("--target-weight", type=float, required=True, help="Желаемый суммарный вес одного билета")
-    parser.add_argument("--group-mode", choices=GROUP_MODES, default="ignore",
+    parser.add_argument("--group-mode", choices=GROUP_MODES, default=defaults.group_mode,
                         help="different: все из разных групп; same: все из одной группы; ignore: без ограничений")
-    parser.add_argument("--max-search-nodes", type=int, default=100_000,
+    parser.add_argument("--max-search-nodes", type=int, default=defaults.max_search_nodes,
                         help="Лимит перечисления типов и планов; auto переключает точный решатель при превышении")
-    parser.add_argument("--objective-mode", choices=OBJECTIVE_MODES, default="weight-first",
+    parser.add_argument("--objective-mode", choices=OBJECTIVE_MODES, default=defaults.objective_mode,
                         help="weight-first: максимальное и суммарное отклонения, затем мягкие частоты; balanced: прежние три строгие цели")
-    parser.add_argument("--algorithm", choices=ALGORITHMS, default="auto",
+    parser.add_argument("--algorithm", choices=ALGORITHMS, default=defaults.algorithm,
                         help="Автовыбор, DP по суммам, перебор планов, DP по частотам или CP-SAT; для любого n")
-    parser.add_argument("--max-dp-states", type=int, default=100_000,
-                        help="Лимит сохранённых состояний DP по суммам или слоя DP по частотам; бюджет переходов — в 10 раз больше")
-    parser.add_argument("--time-limit", type=float, default=30, help="Общий лимит решения CP-SAT в секундах (по умолчанию 30)")
-    parser.add_argument("--allow-feasible", action="store_true",
+    parser.add_argument("--max-dp-states", type=int, default=defaults.max_dp_states,
+                        help="Лимит сохранённых состояний DP по суммам или слоя DP по частотам; множитель бюджета переходов задаётся в config.json")
+    parser.add_argument("--time-limit", type=float, default=defaults.time_limit, help="Общий лимит решения CP-SAT в секундах")
+    parser.add_argument("--allow-feasible", action=argparse.BooleanOptionalAction, default=defaults.allow_feasible,
                         help="Разрешить допустимый результат без доказанного оптимума; JSON будет помечен optimal=false")
-    parser.add_argument("--output", type=Path, default=Path("tickets.json"))
+    parser.add_argument("--output", type=Path, default=Path(defaults.output))
     args = parser.parse_args(argv)
     try:
         if args.output.resolve() == args.questions.resolve():
@@ -60,7 +63,7 @@ def main(argv=None) -> None:
                                    args.tickets, args.group_mode, args.max_search_nodes,
                                    target_weight=args.target_weight, algorithm=args.algorithm,
                                    time_limit=args.time_limit, allow_feasible=args.allow_feasible,
-                                   max_dp_states=args.max_dp_states, objective_mode=args.objective_mode)
+                                   max_dp_states=args.max_dp_states, objective_mode=args.objective_mode, settings=settings)
         tickets = result.tickets
         write_tickets(args.output, tickets, questions=questions, target_weight=args.target_weight,
                       optimization={"algorithm": result.algorithm, "optimal": result.optimal,

@@ -1,0 +1,15 @@
+{
+  "schedule": {
+    "minutes_per_student": 30,
+    "prep_minutes": 40,
+    "output": "schedule.tsv"
+  },
+  "workload": {
+    "output": "workload.tsv",
+    "warning_ratio": 0.9,
+    "overload_color": "#fecaca",
+    "warning_color": "#fef08a",
+    "normal_color": "#bbf7d0",
+    "idle_color": "#f3f4f6"
+  }
+}

@@ -102,3 +102,4 @@ class SumPlan:
     profiles: tuple[TopicProfile, ...]
     amounts: tuple[tuple[Fraction, int], ...]
     size: int
+    random_seed: int

@@ -1,0 +1,26 @@
+{
+  "generation": {
+    "group_mode": "ignore",
+    "objective_mode": "weight-first",
+    "algorithm": "auto",
+    "max_search_nodes": 100000,
+    "max_dp_states": 100000,
+    "time_limit": 30,
+    "allow_feasible": false,
+    "output": "tickets.json"
+  },
+  "search": {
+    "dp_work_multiplier": 10,
+    "auto_enumeration_work_limit": 10000,
+    "cp_sat_workers": 1,
+    "random_seed": 0
+  },
+  "printing": {
+    "tickets_per_page": 4,
+    "margin_mm": 12,
+    "font_size": 12,
+    "title": "Математический анализ М+",
+    "institution": "ФКН ВШЭ",
+    "font": "Liberation Serif"
+  }
+}
