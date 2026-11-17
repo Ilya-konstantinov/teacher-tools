@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "teacher-tools"
+version = "0.1.0"
+description = "Question paper generation and student scheduling tools"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+solver = ["ortools>=9.12,<10"]
+build = ["pyinstaller>=6.16,<7"]
+
+[project.scripts]
+paperforge = "paperforge.app:main"
+slotplan = "slotplan.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+paperforge = ["config.json", "templates/*.typ"]
+slotplan = ["config.json"]

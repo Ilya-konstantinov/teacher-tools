@@ -1,0 +1,30 @@
+name: Standalone binaries
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install ".[solver,build]"
+      - run: python tools/build_binaries.py
+      - run: python tools/smoke_binaries.py --dist-dir dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: teacher-tools-${{ matrix.os }}
+          path: dist/*
+          if-no-files-found: error
