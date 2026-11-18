@@ -48,11 +48,11 @@ class PipelineTests(unittest.TestCase):
         for question in self.bank:
             self.assertIn(question['text'], document)
             self.assertIn(question['answers'].replace('&', r'\&'), document)
-        self.run_generation('--answers', '--no-pdf', pipeline=True)
+        self.run_generation('--answers', '--no-pdf', '--key-output', str(self.root / 'key.json'), pipeline=True)
         data = json.loads(self.output.read_text())
         for ticket in data['tickets']:
             for question in ticket['questions']:
-                self.assertIn('answers', question)
+                self.assertNotIn('answers', question)
                 self.assertNotIn('answer', question)
 
     def test_optional_ids_through_pipeline_and_original_bank_answers(self):
@@ -66,12 +66,12 @@ class PipelineTests(unittest.TestCase):
         questions = read_questions(self.source)
         self.assertEqual([q.id for q in questions], ['q1', 'q2', 'q3', 'q4'])
         self.assertEqual(questions, read_questions(self.source))
-        self.run_generation('--answers', '--no-pdf', pipeline=True)
+        self.run_generation('--answers', '--no-pdf', '--key-output', str(self.root / 'key.json'), pipeline=True)
         data = json.loads(self.output.read_text())
         expected = {q.id: (q.text, q.answer) for q in questions}
         for ticket in data['tickets']:
             for question in ticket['questions']:
-                self.assertEqual((question['text'], question['answers']), expected[question['id']])
+                self.assertEqual((question['text'], json.loads((self.root / 'key.json').read_text())[question['id']]), expected[question['id']])
         with contextlib.redirect_stdout(io.StringIO()):
             print_document([str(self.source), '--no-pdf'], answers=True)
         self.assertEqual(self.source.read_text(), original)
@@ -91,7 +91,7 @@ class PipelineTests(unittest.TestCase):
     def test_legacy_answer_and_conflicting_fields(self):
         self.bank[0]['answer'] = self.bank[0].pop('answers')
         self.save_bank()
-        self.run_generation('--answers', '--no-pdf', pipeline=True)
+        self.run_generation('--answers', '--no-pdf', '--key-output', str(self.root / 'key.json'), pipeline=True)
         self.bank[0]['answers'] = 'Conflicting answer'
         self.save_bank()
         with self.assertRaisesRegex(ValueError, 'противоречат'):
@@ -168,7 +168,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual([q.weight for q in questions], [1, 1, 1])
 
     def test_pipeline_and_standalone_answers_same_order(self):
-        self.run_generation('--no-pdf', '--answers', pipeline=True)
+        self.run_generation('--no-pdf', '--answers', '--key-output', str(self.root / 'key.json'), pipeline=True)
         data = json.loads(self.output.read_text())
         student = self.output.with_suffix('.tex').read_text()
         answers = self.output.with_name('result_answers.tex').read_text()
@@ -178,10 +178,10 @@ class PipelineTests(unittest.TestCase):
             previous = answers.index('Билет № ' + str(ticket['ticket']), previous + 1)
             for question in ticket['questions']:
                 previous = answers.index(question['text'], previous + 1)
-                previous = answers.index(question['answers'].replace('&', r'\&'), previous + 1)
+                previous = answers.index(json.loads((self.root / 'key.json').read_text())[question['id']].replace('&', r'\&'), previous + 1)
         independent = self.root / 'standalone.tex'
         with contextlib.redirect_stdout(io.StringIO()):
-            print_document([str(self.output), '--no-pdf', '-o', str(independent)], answers=True)
+            print_document([str(self.output), '--no-pdf', '-o', str(independent), '--key', str(self.root / 'key.json')], answers=True)
         self.assertEqual(answers, independent.read_text())
 
     def test_separate_key_requires_all_selected_answers(self):

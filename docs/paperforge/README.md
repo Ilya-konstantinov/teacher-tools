@@ -37,9 +37,9 @@ Use `--no-pdf` to omit compilation. For LaTeX output, use `--format tex` or omit
 | `run` | Generate, render, and compile; add `--answers` to include answers |
 
 ```sh
-paperforge generate --questions examples/paperforge/questions_simple.json -n 2 --tickets 3 --output papers.json
+paperforge generate --questions examples/paperforge/questions_simple.json -n 2 --tickets 3 --output papers.json --key-output key.json
 paperforge print papers.json --format typst --pdf
-paperforge answers papers.json --format typst
+paperforge answers papers.json --key key.json --format typst
 ```
 
 Every command supports `--help`.
@@ -120,7 +120,7 @@ Forced algorithms fail when their budgets are exceeded. `auto` may fall back to 
 
 ## Generated JSON
 
-The result contains `tickets`, `target_weight`, `max_weight_deviation`, `question_usage`, and `optimization`. Each ticket has a number, total weight, weight deviation, and its question snapshots. Inline answers are retained in JSON but omitted from the built-in student-facing documents.
+The result contains `tickets`, `target_weight`, `max_weight_deviation`, `question_usage`, and `optimization`. Each ticket has a number, total weight, weight deviation, and its question snapshots. Ticket JSON and student renderers omit answers. Add `--key-output key.json` to save the selected answers in a separate file. To render them later, use `paperforge answers tickets.json --key key.json`.
 
 Optimization metadata includes the method, objective mode/count, proven objective prefix, `optimal`, frequency guarantee, class/type counts, and diagnostics such as DP sizes and fallback reasons. `ticket_types` may be `null` when types were not enumerated.
 
@@ -129,7 +129,7 @@ Invalid input or rendering errors are detected before pipeline output is written
 ## Answer documents
 
 ```sh
-paperforge answers papers.json --format typst
+paperforge answers papers.json --key key.json --format typst
 paperforge answers bank.json --format typst --output bank_answers.typ
 ```
 
@@ -265,3 +265,11 @@ Planning and reconstruction are separate. `generate_tickets_report()` combines t
 Core modules: `planning.py`, `sum_dp.py`, `type_dp.py`, `cp_sat.py`, and `reconstruction.py` implement selection; `io.py` handles banks/snapshots; `documents.py`, `backends.py`, `generators.py`, `printing.py`, and `answers.py` handle rendering and compilation.
 
 Run `python -m unittest discover -s tests/test_paperforge -v`. Tests compare solvers with exhaustive small cases, verify constraints and reconstruction, and cover file-backed questions, optional IDs, inline answers, configuration, renderer contracts, error propagation, and output collisions. Binary smoke tests live in [tools/](../../tools/).
+
+### Hand off selected papers to another program
+
+    paperforge generate bank.json -n 2 -t 3 --then python3 my_renderer.py
+
+Paperforge writes the selected papers and appends the absolute JSON path to the command arguments. The program inherits the working directory and terminal and controls all its outputs. A nonzero exit status fails the command and leaves the tickets available for retry.
+
+A question can specify `"answer_file": "answers/q1.txt"` instead of inline `answers`. Paths resolve relative to the bank just like `text_file`. UTF-8 text is preserved, including line breaks. A file ending in `.json` contains an answer string or a structured answer object. Answer renderers receive the loaded value in `answers`. Student renderers and the JSON passed to `--then` receive only the questions and ticket metadata.

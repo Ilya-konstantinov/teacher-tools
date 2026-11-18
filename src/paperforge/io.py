@@ -66,16 +66,19 @@ def parse_questions(data, *, base_dir=Path('.'), sources=None) -> list[Question]
         if 'text_file' in item:
             if 'text' in item:
                 raise ValueError(f'Вопрос {number}: задайте только text или text_file')
-            filename = item['text_file']
-            if not isinstance(filename, str) or not filename.strip():
-                raise ValueError(f'Вопрос {number}: text_file должен быть непустым путём')
-            source = Path(filename).expanduser()
-            if not source.is_absolute():
-                source = base_dir / source
-            if sources is not None:
-                sources.append(source)
+            source = source_file(item, 'text_file', base_dir, sources, number)
             content = read_text_question(source)
             item = {**content, **item}
+        if 'answer_file' in item:
+            if 'answer' in item or 'answers' in item:
+                raise ValueError(f'Вопрос {number}: answer_file несовместим с answer и answers')
+            source = source_file(item, 'answer_file', base_dir, sources, number)
+            answer = source.read_text(encoding='utf-8-sig')
+            if source.suffix.lower() == '.json':
+                answer = json.loads(answer)
+            if not isinstance(answer, (str, dict)) or not answer:
+                raise ValueError(f'{source}: ожидается текст ответа или объект correct/comment')
+            item = {**item, 'answers': answer}
         if has_weights and 'weight' not in item:
             raise ValueError(f"Вопрос {number}: weight должен быть задан у всех вопросов или ни у одного")
         if "related" in item:
@@ -95,6 +98,16 @@ def parse_questions(data, *, base_dir=Path('.'), sources=None) -> list[Question]
     return result
 
 
+def source_file(item, field, base_dir, sources, number):
+    filename = item[field]
+    if not isinstance(filename, str) or not filename.strip():
+        raise ValueError(f'Вопрос {number}: {field} должен быть непустым путём')
+    path = base_dir / Path(filename).expanduser()
+    if sources is not None:
+        sources.append(path)
+    return path
+
+
 def question_answers(item):
     """answers — основное поле; answer читается для прежних JSON."""
     if 'answers' in item and 'answer' in item and item['answers'] != item['answer']:
@@ -109,6 +122,14 @@ def question_data(question):
     if question.answer is not None:
         data['answers'] = question.answer
     return data
+
+
+def without_answers(data):
+    return {**data, 'tickets': [
+        {**ticket, 'questions': [
+            {k: v for k, v in question.items() if k not in ('answer', 'answers', 'answer_text', 'answer_file')}
+            for question in ticket['questions']]}
+        for ticket in data['tickets']]}
 
 
 def tickets_data(tickets: list[Ticket], *, questions: list[Question], target_weight: float,
@@ -131,7 +152,7 @@ def tickets_data(tickets: list[Ticket], *, questions: list[Question], target_wei
 def write_tickets(path: Path, tickets: list[Ticket], *, questions: list[Question], target_weight: float,
                   optimization: dict | None = None) -> None:
     data = tickets_data(tickets, questions=questions, target_weight=target_weight, optimization=optimization)
-    write_json(path, data)
+    write_json(path, without_answers(data))
 
 
 def write_json(path, data):

@@ -33,13 +33,13 @@ def main():
         for algorithm in ('sum-dp', 'cp-sat', 'cp-sat-types'):
             output = directory / (algorithm + '.json')
             run(paperforge, 'generate', '--questions', bank, '-n', 2, '--tickets', 3,
-                '--target-weight', 6, '--algorithm', algorithm, '--output', output)
+                '--target-weight', 6, '--algorithm', algorithm, '--key-output', directory / 'key.json', '--output', output)
             data = json.loads(output.read_text())
             assert len(data['tickets']) == 3 and data['optimization']['optimal'], data
         source = directory / 'sum-dp.json'
         run(paperforge, 'print', source, '--format', 'typst')
         assert source.with_suffix('.typ').read_text().startswith('#let document =')
-        run(paperforge, 'answers', source, '--format', 'typst', '--no-pdf')
+        run(paperforge, 'answers', source, '--key', directory / 'key.json', '--format', 'typst', '--no-pdf')
         assert 'Answer' in (directory / 'sum-dp_answers.typ').read_text()
         run(paperforge, 'print', source)
         assert '\\begin{document}' in source.with_suffix('.tex').read_text()

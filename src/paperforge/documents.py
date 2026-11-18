@@ -11,8 +11,8 @@ from .answers import answer_text, export_answers_tex, read_key, with_answers
 from .backends import (compile_external, document_payload, output_format, render_external,
                        render_typst, subprocess_environment)
 from .config import settings_for_cli, validate_printing
-from .generators import load_generator
-from .io import question_data, read_questions
+from .generators import generator_sources, load_generator
+from .io import question_data, read_questions, without_answers
 from .printing import export_tex
 
 
@@ -104,6 +104,8 @@ def render_document(data, *, settings, generator=None, renderer_command=None,
         data = {**data, 'tickets': [{**t, 'questions': [
             {**q, 'answer_text': answer_text(q, q['answers'])} for q in t['questions']
         ]} for t in data['tickets']]}
+    else:
+        data = without_answers(data)
     fmt = options.pop('format', 'tex')
     options = {**vars(settings.printing), **options}
     payload = document_payload(data, settings=settings, answers=answers, options=options)
@@ -188,10 +190,7 @@ def main(argv=None, *, answers=False):
     output = args.output or base.with_name(base.stem + ('_answers' if answers else '') + '.' + args.format)
     try:
         sources = [source, args.template, getattr(args, 'key', None), args.config]
-        if args.generator:
-            generator_path = Path(args.generator.split(':')[0]).expanduser()
-            sources.extend([generator_path, generator_path.with_name('template.tex'),
-                            generator_path.with_name('answers-template.tex')])
+        sources.extend(generator_sources(args.generator))
         data = read_document(source, sources=sources)
         check_outputs([output], sources, pdf=args.pdf, format=args.format)
         key = read_key(args.key) if answers and args.key else None

@@ -6,13 +6,23 @@ import sys
 import uuid
 
 
+def parse_generator(spec):
+    filename, separator, function = str(spec).rpartition(':')
+    if separator and function.isidentifier():
+        return Path(filename).expanduser(), function
+    return Path(spec).expanduser(), None
+
+
+def generator_sources(spec):
+    if not spec:
+        return ()
+    path, _ = parse_generator(spec)
+    return path, path.with_name('template.tex'), path.with_name('answers-template.tex')
+
+
 def load_generator(spec, answers=False):
-    """FILE[:function]; без функции также поддерживается интерфейс CppLyc."""
-    raw = str(spec)
-    filename, separator, function = raw.rpartition(':')
-    if not separator or not function.isidentifier():
-        filename, separator, function = raw, '', ''
-    path = Path(filename).expanduser().resolve()
+    path, function = parse_generator(spec)
+    path = path.resolve()
     name = '_ticket_generator_' + uuid.uuid4().hex
     module_spec = importlib.util.spec_from_file_location(name, path)
     if module_spec is None or module_spec.loader is None:
@@ -24,12 +34,13 @@ def load_generator(spec, answers=False):
         module_spec.loader.exec_module(module)
     finally:
         sys.modules.pop(name, None)
-    function = function if separator else ('export_document' if callable(getattr(module, 'export_document', None))
+    explicit_function = function is not None
+    function = function or ('export_document' if callable(getattr(module, 'export_document', None))
                                            else ('export_answers_tex' if answers else 'export_tex'))
     renderer = getattr(module, function, None)
     if callable(renderer):
         return renderer
-    if not separator and all(callable(getattr(module, member, None)) for member in
+    if not explicit_function and all(callable(getattr(module, member, None)) for member in
                              ('Question', 'render_answers' if answers else 'render')):
         return lambda data, **options: render_cpplyc(module, data, answers=answers, **options)
     raise ValueError(f'{path}: не найдена функция {function}')
