@@ -51,6 +51,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
+          if release=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,assets); then
+            jq -e '.isDraft == false' <<< "$release" >/dev/null
+            for archive in *.zip; do
+              jq -e --arg name "$archive" 'any(.assets[]; .name == $name and .state == "uploaded" and .size > 0)' <<< "$release" >/dev/null
+            done
+            echo "Release $TAG already contains all platform archives."
+            exit 0
+          fi
           flags=()
           if [[ "$TAG" == *-* ]]; then flags+=(--prerelease); fi
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --generate-notes "${flags[@]}" *.zip
