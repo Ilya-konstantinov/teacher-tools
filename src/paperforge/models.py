@@ -1,4 +1,4 @@
-"""Модели вопросов, типов, профилей и планов билетов."""
+"""Models for questions, types, profiles, and paper selection plans."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -56,7 +56,7 @@ class TypeSelection:
 
 @dataclass(frozen=True)
 class TicketPlan:
-    """Снимок входа и результат выбора типов, без конкретных билетов."""
+    """Snapshot the inputs and selected type counts before assigning individual questions."""
     questions: tuple[Question, ...]
     classes: tuple[QuestionClass, ...]
     selection: TypeSelection
@@ -84,7 +84,7 @@ class GenerationResult:
 @dataclass(frozen=True)
 class TopicProfile:
     histogram: tuple[tuple[Fraction, int], ...]
-    # Одна строка на исходную тему; классы в порядке весов гистограммы.
+    # One row per original topic, with classes ordered by histogram weight.
     members: tuple[tuple[int, ...], ...]
 
 

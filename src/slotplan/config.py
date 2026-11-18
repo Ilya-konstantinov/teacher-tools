@@ -1,4 +1,4 @@
-"""Настройки расписания и отчёта; время проверки задаётся в одном месте."""
+"""Schedule and workload settings share a single examination duration."""
 import argparse
 from dataclasses import dataclass, fields
 import json

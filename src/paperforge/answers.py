@@ -1,4 +1,4 @@
-"""Чтение ключа ответов и стандартный документ «вопрос — ответ»."""
+"""Read answer keys and render question-and-answer documents."""
 import json
 from pathlib import Path
 
@@ -30,7 +30,7 @@ def answer_text(question, entry):
 
 
 def with_answers(data, key=None):
-    """Копия документа с ответами; ключ банка может содержать невыбранные вопросы."""
+    """Copy the document with answers attached. The bank key may include unselected questions."""
     tickets = []
     for ticket in data['tickets']:
         questions = []

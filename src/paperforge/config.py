@@ -1,4 +1,4 @@
-"""Проверяемые настройки: CLI > пользовательский JSON > config.json проекта."""
+"""Validate settings in descending precedence: CLI, user JSON, project defaults."""
 import argparse
 from dataclasses import dataclass, fields
 import json
@@ -6,11 +6,11 @@ import math
 from pathlib import Path
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / 'config.json'
-# Поддерживаемые границы печатного шаблона, а не значения по умолчанию.
+# Supported printing limits. Defaults are defined in config.json.
 TICKETS_PER_PAGE_RANGE = (1, 8)
 MARGIN_MM_RANGE = (5, 40)
 FONT_SIZE_RANGE = (8, 18)
-# Параметр random_seed в OR-Tools — знаковое 32-битное целое.
+# OR-Tools expects a signed 32-bit random seed.
 MAX_RANDOM_SEED = (1 << 31) - 1
 
 

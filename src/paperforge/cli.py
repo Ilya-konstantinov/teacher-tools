@@ -1,4 +1,4 @@
-"""Интерфейс генерации билетов."""
+"""Command-line interface for generating question papers."""
 import argparse
 from collections import Counter
 from pathlib import Path

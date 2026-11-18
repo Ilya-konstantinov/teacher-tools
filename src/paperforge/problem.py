@@ -1,4 +1,4 @@
-"""Правила задачи, цели, классы вопросов и типы билетов."""
+"""Problem rules, objectives, question classes, and paper types."""
 import math
 from collections import defaultdict
 from dataclasses import replace
@@ -45,11 +45,7 @@ OBJECTIVE_MODES = tuple(OBJECTIVES)
 
 
 def priority_score(mode, frequency, deviation):
-    """Порядок оставшихся целей после фиксации минимакса.
-
-    В weight-first точные решатели могут использовать частоты лишь для
-    разрешения равенства по сложности; публичная гарантия — две цели.
-    """
+    """Order the remaining objectives after fixing the minimax value. In weight-first mode, exact solvers may use frequencies to break difficulty ties. Only the two difficulty objectives are guaranteed."""
     return (frequency, deviation) if mode == 'balanced' else (deviation, frequency)
 
 
@@ -62,7 +58,7 @@ def describe_selection(selection, mode):
 
 
 class SearchLimit(Exception):
-    """Исчерпан бюджет точного перечисления/динамики; частичный ответ запрещён."""
+    """Exact enumeration or DP exhausted its budget without a complete solution."""
 
 
 def group_questions(questions: list[Question], mode: str) -> list[QuestionClass]:
@@ -75,10 +71,7 @@ def group_questions(questions: list[Question], mode: str) -> list[QuestionClass]
 
 
 def enumerate_types(classes, size, count, mode, target, limit):
-    """Перечислять составы классов, не конкретные подмножества вопросов.
-
-    Вместимость обрезается на count: большие значения эквивалентны для выбора.
-    """
+    """Enumerate class compositions. Cap capacities at count because larger values are equivalent for selection."""
     patterns = []
     stack = [(size, 0, (), Fraction(0), 1, frozenset())]
     visited = 0

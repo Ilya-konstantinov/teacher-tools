@@ -1,4 +1,4 @@
-"""DP по профилям и суммам: подсчёт способов и выбор сложности."""
+"""Count combinations and select difficulty levels using profile and sum DP."""
 from collections import defaultdict
 from fractions import Fraction
 from types import MappingProxyType
@@ -27,7 +27,7 @@ class SumTableBuilder:
         return MappingProxyType(dict(table))
 
     def check(self, table):
-        # Проверяем и временную таблицу, не только завершённые слои.
+        # Include the temporary table in the budget check.
         if self.states + len(table) > self.budget:
             raise SearchLimit('Превышен лимит сохранённых состояний DP по суммам')
 
@@ -56,7 +56,7 @@ class SumTableBuilder:
                     table[taken + amount, total + amount * weight] += ways * capacity
                     self.check(table)
             layers.append(self.freeze(table))
-        # Слои нужны для восстановления; последняя таблица не копируется.
+        # Keep layers for reconstruction and reuse the final table.
         return SumNode('subset', layers[-1], profile=index, layers=tuple(layers))
 
     def product(self, left, right, repeated=False):
@@ -76,8 +76,8 @@ class SumTableBuilder:
         return result
 
     def power(self, leaf, copies):
-        # Один и тот же узел степени переиспользуется: число копий не означает
-        # столько же одинаковых таблиц. Двоичное возведение в степень.
+        # Exponentiation by squaring reuses the same power node,
+        # so repeated copies share their tables.
         cache = {1: leaf}
         def build(count):
             if count in cache:
@@ -120,8 +120,8 @@ def build_sum_table(classes, size, mode, max_states, *, work_multiplier):
                 builder.check(table)
         root = SumNode('choice', builder.freeze(table), tuple(nodes))
     else:
-        # Соединяем соседние блоки сбалансированным деревом: восстановление
-        # не упирается в рекурсивную глубину по числу исходных тем.
+        # Combine adjacent blocks in a balanced tree to keep reconstruction
+        # depth logarithmic in the number of original topics.
         while len(nodes) > 1:
             nodes = [builder.product(nodes[i], nodes[i + 1]) if i + 1 < len(nodes) else nodes[i]
                      for i in range(0, len(nodes), 2)]
@@ -132,7 +132,7 @@ def build_sum_table(classes, size, mode, max_states, *, work_multiplier):
 
 
 def proportional_counts(capacities, count):
-    """Детерминированное распределение без превышения вместимостей."""
+    """Allocate deterministically within capacity limits."""
     total = sum(capacities)
     if count > total:
         raise ValueError('Недостаточно различных билетов')
@@ -174,7 +174,7 @@ def select_sums(classes, size, count, mode, target, max_states, *, search):
 
 
 def select_weight_types(pool, count):
-    """Точный выбор первых двух целей из уже перечисленных типов."""
+    """Optimize the first two objectives exactly using the enumerated types."""
     buckets = defaultdict(list)
     for i, pattern in enumerate(pool):
         buckets[pattern.deviation].append(i)

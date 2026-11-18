@@ -1,8 +1,4 @@
-"""Нагрузка при начале проверки через фиксированное время после прихода.
-
-Это спрос без очереди: значение выше 100% означает, что начать все проверки
-в плановое время не получится. Расписание студентов этот отчёт не меняет.
-"""
+"""Report workload when examinations begin a fixed time after arrival. Demand is measured without queuing. Above 100%, some examinations cannot start on time. The report leaves the schedule unchanged."""
 import argparse
 import csv
 from html import escape

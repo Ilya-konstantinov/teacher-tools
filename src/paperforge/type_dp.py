@@ -1,4 +1,4 @@
-"""Выбор количеств типов: сокращения, перебор и DP по частотам."""
+"""Choose type counts using reductions, enumeration, and frequency DP."""
 from dataclasses import dataclass
 from fractions import Fraction
 from math import lcm
@@ -60,14 +60,14 @@ def components(pool):
 
 
 def enumeration_bound(problem, limit):
-    """Верхняя граница числа планов с отсечением больших целых на limit+1."""
+    """Bound the number of plans, capping large integers at limit + 1."""
     p = len(problem.capacities)
     if problem.count == 0 or p <= 1:
         return 1
     product = 1
     for cap in problem.capacities:
         product = min(limit + 1, product * (cap + 1))
-    # Число слабых композиций H по P типам: C(H+P-1,P-1).
+    # Number of weak compositions of H into P types: C(H+P-1,P-1).
     n = problem.count + p - 1
     k = min(problem.count, p - 1)
     combinations = 1
@@ -84,7 +84,7 @@ class Projection:
     active: tuple[int, ...]
     tracked: tuple[int, ...]
     vectors: tuple[tuple[int, ...], ...]
-    # Для каждого активного класса: целые коэффициенты и общий знаменатель.
+    # Integer coefficients and a common denominator for each active class.
     expressions: tuple[tuple[tuple[int, ...], int], ...]
     state_bound: int
 
@@ -100,12 +100,7 @@ class Projection:
 
 
 def frequency_projection(classes, pool, capacities, count, work_limit):
-    """Выбрать независимые строки [число билетов; частоты] точно над Q.
-
-    Сначала сохраняется строка числа билетов, затем частоты с малыми границами.
-    Ранг R не превосходит min(C,P). Зависимые частоты выражаются через R
-    координат. Ни округления весов, ни приближённого исключения строк нет.
-    """
+    """Select independent paper-count and frequency rows over the rationals. Keep the paper-count row first, then frequencies with small bounds. Rank R is at most min(C,P). Express dependent frequencies in R coordinates using exact elimination without rounding weights."""
     columns = [dict(p.composition) for p in pool]
     active = tuple(sorted({c for p in pool for c, _ in p.composition}))
     bounds = {c: min(len(classes[c].members) * count,
@@ -116,7 +111,7 @@ def frequency_projection(classes, pool, capacities, count, work_limit):
     candidates = [(-1, [1] * len(pool))]
     candidates += [(c, [col.get(c, 0) for col in columns])
                    for c in sorted(active, key=lambda c: (bounds[c], c))]
-    basis = []  # pivot, нормализованная строка, выражение через исходные строки
+    basis = []  # Pivot, normalized row, and coefficients in terms of the original rows.
     chosen = []
     expressions = {}
     work = 0
@@ -220,7 +215,7 @@ def _decode(trace, length):
 def _table(classes, component, problem, budget, require_all, objective_mode):
     projection = component.projection
     count = component.count
-    # Вместимость u заменяется O(log(u+1)) пакетами 1,2,4,...,остаток.
+    # Split capacity u into O(log(u+1)) bundles of sizes 1, 2, 4, ..., remainder.
     chunks = []
     for local_index, global_index in enumerate(component.indices):
         remaining = min(problem.capacities[global_index], count)
@@ -281,8 +276,8 @@ def select_types_dp(classes, pool, count, max_states, analysis=None, objective_m
         for index, amount in zip(component.indices, local):
             amounts[index] = amount
         return problem.restore(amounts)
-    # Аддитивные стоимости независимых компонент объединяются рюкзаком.
-    # Путь хранится связным списком, не копируется на каждом переходе.
+    # Combine additive costs of independent components using knapsack DP.
+    # Store paths as linked lists to avoid copying at each transition.
     totals = {0: (0, 0, None)}
     for component in analysis.components:
         table = _table(classes, component, problem, budget, require_all=False, objective_mode=objective_mode)

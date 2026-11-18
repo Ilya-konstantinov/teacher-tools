@@ -73,7 +73,7 @@ class SumSelectionTests(unittest.TestCase):
                                              (ordered[count-1], sum(ordered[:count])))
 
     def test_compressed_counts_and_unranking_match_all_combinations(self):
-        # Пять одинаковых профилей: проверяется нечётная степень и исходные темы.
+        # Five identical profiles exercise odd powers and preserve the original topics.
         questions = [Question(f'{g}_{i}', f'{g}_{i}', w, str(g))
                      for g in range(5) for i, w in enumerate((1, 1, 3))]
         for mode in GROUP_MODES:
@@ -103,7 +103,7 @@ class SumSelectionTests(unittest.TestCase):
         self.assertEqual(result.algorithm, 'profile-sum-dp')
         self.assertEqual(result.diagnostics['topic_profiles'], 1)
         self.assertEqual(weight_score(result.tickets, 96), (0, 0))
-        # Повторные степени не сохраняют таблицу на каждую из 64 тем.
+        # Repeated powers do not retain a separate table for each of the 64 topics.
         self.assertLess(result.diagnostics['sum_states'], 200)
 
     def test_unranking_skips_large_empty_topic_subtrees(self):
@@ -127,8 +127,8 @@ class SumSelectionTests(unittest.TestCase):
         capacity = sums.root.table[size, Fraction(size)]
         composition = unrank_composition(sums, Fraction(size), capacity // 2)
         self.assertEqual(sum(amount for _, amount in composition), size)
-        # Число посещённых таблиц ограничивается путями выбранных тем,
-        # а не всеми исходными темами; без пропуска пустых ветвей их 1023.
+        # Only tables along selected topic paths are visited.
+        # Without pruning empty branches, all 1023 would be visited.
         self.assertLessEqual(visits, size * topic_count.bit_length())
 
     def test_selection_does_not_restore_and_restoration_is_repeatable(self):
@@ -188,7 +188,7 @@ class SumSelectionTests(unittest.TestCase):
 
     def test_same_mode_does_not_merge_original_topics(self):
         questions = [Question(f'{g}_{i}', str(i), 1, str(g)) for g in range(8) for i in range(2)]
-        # У каждой темы лишь 2 вопроса: их нельзя слить в одну тему на 16.
+        # Each topic has only two questions. Merging them into one topic of 16 would change the constraints.
         with self.assertRaises(ValueError):
             generate_tickets_report(questions, 3, 1, 'same', target_weight=3)
 

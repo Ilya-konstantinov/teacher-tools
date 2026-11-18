@@ -1,4 +1,4 @@
-"""Общий путь JSON → выбранная функция печати → TeX → PDF."""
+"""Render JSON documents with the selected backend and optionally compile to PDF."""
 import argparse
 from dataclasses import replace
 import json

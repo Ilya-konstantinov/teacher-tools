@@ -1,4 +1,4 @@
-"""Общие модели выбора билетов для OR-Tools CP-SAT, без перебора наборов."""
+"""OR-Tools CP-SAT models for selecting papers without enumerating question sets."""
 from fractions import Fraction
 from collections import Counter
 from dataclasses import replace
@@ -9,7 +9,7 @@ from .models import Question, TicketType, TypeSelection
 from .problem import balanced_cost
 
 
-# Запас до границы int64 для сумм и промежуточных выражений модели.
+# Leave headroom for intermediate expressions and sums in int64.
 CP_SAT_SAFE_INTEGER_LIMIT = 1 << 60
 
 
@@ -40,13 +40,13 @@ def _frequency_objective(model, columns, ticket_count):
         count = model.new_int_var(0, upper, f"count_{i}")
         model.add(count == sum(column))
         square = model.new_int_var(0, upper ** 2, f"count_squared_{i}")
-        # Точное выпуклое продолжение c² на целых c, с сильной LP-релаксацией.
+        # Exact convex extension of c² at integer points with a tight LP relaxation.
         for degree in range(1, upper + 1):
             model.add(square >= (2 * degree - 1) * count - degree * (degree - 1))
         squares.append(square)
         counts.append(count)
-    # При любом числе появлений минимальная сумма квадратов достигается
-    # при различии частот максимум на 1. Эта оценка усиливает модель.
+    # For any total number of occurrences, frequencies differing by at most one
+    # minimize the sum of squares. This lower bound strengthens the model.
     if squares:
         total_count = model.new_int_var(0, len(squares) * ticket_count, 'total_count')
         model.add(total_count == sum(counts))
@@ -90,7 +90,7 @@ def _solve(model, objectives, extract, time_limit, allow_feasible, proven=0, *, 
 
 
 def select_types(questions, classes, pool, ticket_count, time_limit, allow_feasible, objective_mode="balanced", *, search):
-    """Одна целочисленная переменная на тип (вес × тематическая группа)."""
+    """Use one integer variable per type (weight and topic group)."""
     cp_model = _cp_model()
     model = cp_model.CpModel()
     selected = [model.new_int_var(0, min(p.capacity, ticket_count), f"type_{j}")
@@ -126,13 +126,13 @@ def select_types(questions, classes, pool, ticket_count, time_limit, allow_feasi
     def extract(solver):
         return TypeSelection(tuple(pool), tuple(solver.value(x) for x in selected), "cp-sat-types")
 
-    # Минимакс уже доказан порогом; решаем оставшиеся цели выбранного режима.
+    # The threshold proves the minimax objective. Solve the remaining objectives in order.
     return _solve(model, [frequency, deviation_sum] if objective_mode == "balanced" else [deviation_sum],
                   extract, time_limit, allow_feasible, proven=1, search=search)
 
 
 def _strict_lex_order(model, left, right, index):
-    """left < right без кодирования всего билета огромным двоичным числом."""
+    """Enforce left < right without encoding a paper as a large binary integer."""
     prefix_equal = model.new_constant(1)
     for i, (a, b) in enumerate(zip(left, right)):
         model.add(a <= b).only_enforce_if(prefix_equal)
@@ -149,7 +149,7 @@ def _strict_lex_order(model, left, right, index):
 
 def select_direct(questions: list[Question], classes, size: int, ticket_count: int, group_mode: str,
                   target: Fraction, time_limit: float, allow_feasible: bool, objective_mode="balanced", *, search):
-    """Большие банки: булевы «вопрос в билете», без перечисления сочетаний."""
+    """Use Boolean question membership for large banks to avoid enumerating combinations."""
     cp_model = _cp_model()
     model = cp_model.CpModel()
     weights_and_target = _integers([Fraction(str(q.weight)) for q in questions] + [target], ticket_count)
@@ -174,7 +174,7 @@ def select_direct(questions: list[Question], classes, size: int, ticket_count: i
         deviation = model.new_int_var(0, max_deviation, f"deviation_{t}")
         model.add_abs_equality(deviation, sum(w * x for w, x in zip(weights, row)) - goal)
         deviations.append(deviation)
-    # Строгий порядок одновременно исключает дубли и симметрию перестановки билетов.
+    # Strict ordering rules out duplicates and breaks paper permutation symmetry.
     for t in range(ticket_count - 1):
         _strict_lex_order(model, rows[t], rows[t + 1], t)
     worst = model.new_int_var(0, max_deviation, "worst_deviation")
@@ -185,8 +185,8 @@ def select_direct(questions: list[Question], classes, size: int, ticket_count: i
     class_of = {i: c for c, item in enumerate(classes) for i in item.members}
 
     def extract(solver):
-        # Прямой решатель использует индивидуальные переменные как свидетельство
-        # допустимости. Наружу тоже возвращается только план по типам.
+        # Individual variables witness feasibility in the direct solver.
+        # Return only the counts by type.
         amounts = Counter()
         for row in rows:
             counts = Counter(class_of[i] for i, variable in enumerate(row) if solver.value(variable))

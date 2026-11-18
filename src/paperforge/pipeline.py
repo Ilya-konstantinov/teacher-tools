@@ -1,4 +1,4 @@
-"""Подготовка всех документов до записи результатов пайплайна."""
+"""Prepare all documents before writing pipeline outputs."""
 from pathlib import Path
 
 from .answers import read_key

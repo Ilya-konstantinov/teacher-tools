@@ -1,4 +1,4 @@
-"""Восстановление разных билетов из плана типов или сумм."""
+"""Reconstruct distinct papers from a plan of types or sums."""
 from collections import Counter
 from heapq import heapify, heappop, heappush
 from itertools import combinations, islice
@@ -7,22 +7,18 @@ from random import Random
 from .models import GenerationResult, Ticket, TicketPlan, TicketType
 
 
-HEAP_REBUILD_FACTOR = 4  # Ограничивает накопление устаревших элементов ленивых куч.
+HEAP_REBUILD_FACTOR = 4  # Bound stale entries in the lazy heaps.
 
 
 def unrank_composition(plan, total, rank):
-    """Разобрать индекс конкретного билета до состава исходных классов.
-
-    Индексы внутри сочетаний вопросов класса не материализуются: затем
-    общий восстановитель создаст столько различных билетов данного типа.
-    """
+    """Decode a paper index into counts by original class. Leave individual question combinations implicit until reconstruction creates the required number of distinct papers of that type."""
     result = Counter()
     stack = [(plan.root, plan.size, total, rank, 0)]
     while stack:
         node, taken, weight, rank, offset = stack.pop()
         if taken == 0:
-            # Пустой набор единственный: не разворачиваем тысячи пропущенных
-            # тем повторяющегося профиля, когда R существенно меньше T.
+            # The empty set is unique. Skip expanding thousands of unused
+            # topics with a repeated profile when R is much smaller than T.
             if weight != 0 or rank != 0:
                 raise RuntimeError('Некорректный индекс пустого набора')
             continue
@@ -85,12 +81,7 @@ def unrank_composition(plan, total, rank):
 
 
 def materialize_types(sum_plan, classes, count, target):
-    """Восстановить количества исходных типов, не меняя выбранных сумм.
-
-    По одному случайному индексу из непересекающихся равных страт: без
-    повторов, без смещения к началу банка, без материализации всего пула.
-    Фиксированный seed делает повторное восстановление воспроизводимым.
-    """
+    """Recover original type counts while preserving the selected sums. Sample one index from each disjoint equal stratum to avoid duplicates and bias toward the start of the bank without materializing the pool. A fixed seed makes reconstruction reproducible."""
     rng = Random(sum_plan.random_seed)
     amounts = Counter()
     for total, selected in sum_plan.amounts:
@@ -110,7 +101,7 @@ def materialize_types(sum_plan, classes, count, target):
 
 
 def _combinations_for_type(classes, composition):
-    """Ленивое произведение combinations без материализации его факторов."""
+    """Iterate over the Cartesian product of combinations without materializing its factors."""
     iterators = [iter(combinations(classes[composition[0][0]].members, composition[0][1]))]
     parts = []
     while iterators:
@@ -130,20 +121,14 @@ def _combinations_for_type(classes, composition):
 
 
 def realize(questions, classes, pool, amounts):
-    """Восстановить билеты и достичь точной стоимости F_s(D) каждого класса.
-
-    Если deg(u)>deg(v)+1 внутри класса, среди билетов с u без v есть билет,
-    замена u→v в котором ещё не выбрана. Иначе инъекция этих билетов в билеты
-    с v без u противоречит неравенству степеней. Замена сохраняет тип и
-    уникальность и уменьшает сумму квадратов. Другие классы не меняются.
-    """
+    """Construct papers attaining the exact cost F_s(D) for each class. If deg(u) > deg(v) + 1, some paper containing u but not v admits an unused replacement u -> v. Otherwise the replacements inject those papers into papers with v but not u, contradicting the degree gap. The swap preserves type and uniqueness, reduces the sum of squares, and leaves other classes unchanged."""
     if len(pool) != len(amounts):
         raise ValueError("Число типов и число количеств в плане не совпадают")
-    # Стабильный ID билета позволяет при замене обновлять только два
-    # вопроса, а не переписывать индексы всех неизменившихся участников.
+    # Stable paper IDs let a swap update only the two affected questions.
+    # All other membership indices remain valid.
     tickets = []
     selected = {}
-    occurrences = [{} for _ in questions]  # упорядоченные множества ID
+    occurrences = [{} for _ in questions]  # Ordered sets of paper IDs.
     for pattern, amount in zip(pool, amounts):
         if isinstance(amount, bool) or not isinstance(amount, int) or not 0 <= amount <= pattern.capacity:
             raise ValueError("Некорректное количество билетов типа")
@@ -171,8 +156,8 @@ def realize(questions, classes, pool, amounts):
             low, high = lows[0][1], highs[0][1]
             if degrees[high] - degrees[low] <= 1:
                 break
-            # Порядок dict воспроизводим, сортировка билетов на каждой замене
-            # не нужна. Индексы остальных вопросов сохраняют тот же ID.
+            # Dictionary iteration is deterministic, so swaps need no sorting.
+            # Indices for the remaining questions keep the same paper ID.
             for index in occurrences[high]:
                 ticket = tickets[index]
                 if low in ticket:
@@ -192,7 +177,7 @@ def realize(questions, classes, pool, amounts):
             for i in (low, high):
                 heappush(lows, (degrees[i], i))
                 heappush(highs, (-degrees[i], i))
-            # Ограничиваем память ленивых куч; перестроение амортизировано.
+            # Rebuild heaps periodically to bound memory at amortized cost.
             if max(len(lows), len(highs)) > HEAP_REBUILD_FACTOR * len(item.members):
                 lows = [(degrees[i], i) for i in item.members]
                 highs = [(-degrees[i], i) for i in item.members]
@@ -203,10 +188,7 @@ def realize(questions, classes, pool, amounts):
 
 
 def restore_tickets(plan: TicketPlan) -> GenerationResult:
-    """Подставить вопросы, сохранив количества типов и оптимальные частоты.
-
-    Не запускает оптимизатор. Один план можно восстановить повторно.
-    """
+    """Assign questions while preserving type counts and optimal frequencies. The same plan can be reconstructed repeatedly without running the optimizer."""
     selection = plan.selection
     if selection.sum_plan is not None:
 

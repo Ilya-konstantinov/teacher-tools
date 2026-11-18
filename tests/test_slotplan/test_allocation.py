@@ -16,8 +16,8 @@ class AllocationTests(unittest.TestCase):
         return Student(name, "251", priorities, frozenset(unavailable), datetime(2026, 11, 1, 12) + timedelta(minutes=minute))
 
     def test_check_must_fit_one_examiners_entire_availability(self):
-        # Суммарно принимающий есть в каждый момент, но никто не может
-        # целиком провести проверку 09:40–10:10, поэтому приход в 09:00 запрещён.
+        # An examiner is available at every instant, but none covers the entire
+        # 09:40–10:10 examination, so a 09:00 arrival is infeasible.
         examiners = [Examiner("До 10", (9,)), Examiner("С 10", (10,))]
         result = allocate([self.student("Студент")], examiners, prep_minutes=40)
         self.assertEqual(result[0].start_minute, 9 * 60 + 30)

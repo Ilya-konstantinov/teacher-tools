@@ -19,7 +19,7 @@ from paperforge.reconstruction import realize, restore_tickets
 from paperforge.planning import plan_tickets
 from paperforge.problem import balanced_cost, enumerate_types, group_questions
 
-# Регрессия прежнего порядка целей; новый режим проверяется отдельно.
+# Regression coverage for the original objective order. The new mode has separate tests.
 generate_tickets = partial(generate_tickets, objective_mode="balanced")
 generate_tickets_report = partial(generate_tickets_report, objective_mode="balanced")
 plan_tickets = partial(plan_tickets, objective_mode="balanced")

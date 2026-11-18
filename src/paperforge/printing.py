@@ -5,9 +5,9 @@ from string import Template
 
 from .config import load_settings, validate_printing
 
-# Геометрия шаблона A4; пользовательские параметры находятся в config.json.
+# A4 template geometry. User-configurable settings live in config.json.
 A4_HEIGHT_MM = 297
-SLOT_HEIGHT_EPSILON_MM = 0.01  # Компенсация округления размеров TeX.
+SLOT_HEIGHT_EPSILON_MM = 0.01  # Allow for TeX dimension rounding.
 LINE_SPACING_FACTOR = 1.2
 QUESTION_INDENT_MM = 6
 QUESTION_GAP_MM = 2

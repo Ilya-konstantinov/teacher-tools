@@ -1,4 +1,4 @@
-"""Максимальный поток минимальной стоимости без сторонних зависимостей."""
+"""Compute a minimum-cost maximum flow using only the standard library."""
 from dataclasses import dataclass
 from datetime import datetime
 from heapq import heappop, heappush
@@ -6,7 +6,7 @@ from heapq import heappop, heappush
 from .data import (Assignment, Examiner, Student, MINUTES_PER_HOUR,
                    OUTSIDE_PREFERENCE_PENALTY, UNASSIGNED_PENALTY, PRIORITY_RADIX)
 
-# Совместимость Python API: CLI берёт свои значения из config.json.
+# Python API compatibility defaults. The CLI reads config.json.
 DEFAULT_API_CAPACITY = 2
 DEFAULT_API_PREP_MINUTES = 0
 
@@ -21,7 +21,7 @@ class Edge:
 
 def batch_capacities(examiners: list[Examiner], capacity: int, batch_minutes: int,
                      prep_minutes: int) -> dict[int, int]:
-    """Мест в батче = принимающие, доступные на всей проверке [start, end)."""
+    """Count examiners available throughout the examination interval [start, end)."""
     available_hours = {h for examiner in examiners for h in examiner.hours}
     if not available_hours:
         return {}
@@ -57,8 +57,8 @@ def allocate(students: list[Student], examiners: list[Examiner], capacity: int =
     order = sorted(range(n), key=lambda i: (students[i].submitted_at or datetime.min, i))
     ranks = {index: rank for rank, index in enumerate(order)}
     late = [deadline is not None and s.submitted_at > deadline for s in students]
-    # Проверки соседних батчей не пересекаются; подготовка сдвигает их все
-    # одинаково. Поэтому вместимость каждого батча можно считать независимо.
+    # Adjacent batches have disjoint examinations, and preparation shifts all
+    # of them equally. Each batch capacity can therefore be computed independently.
     capacity_by_batch = batch_capacities(examiners, capacity, batch_minutes, prep_minutes)
     arrivals = sorted(capacity_by_batch)
     source, sink = n + len(arrivals), n + len(arrivals) + 1
@@ -70,12 +70,12 @@ def allocate(students: list[Student], examiners: list[Examiner], capacity: int =
         graph[b].append(Edge(a, len(graph[a]) - 1, 0, -cost))
         return edge
 
-    # Разряды в PRIORITY_RADIX дают точное преимущество ранним заявкам.
-    # Нераспределение имеет худший ранг UNASSIGNED_PENALTY.
+    # Digits in base PRIORITY_RADIX give earlier applications strict priority.
+    # Unassigned students receive the worst rank, UNASSIGNED_PENALTY.
     scale = PRIORITY_RADIX ** n
     late_cost = (OUTSIDE_PREFERENCE_PENALTY * n + 1) * scale
-    # После всех критериев по приоритетам более ранние заявки получают
-    # более раннее время прихода. Младшие разряды не меняют прежнюю оптимизацию.
+    # Once preference criteria tie, assign earlier arrival times to earlier applicants.
+    # Lower-order digits preserve the priority of all preceding criteria.
     time_base = len(arrivals) + 1
     time_scale = time_base ** n
     choices: list[list[tuple[Edge, int, int]]] = [[] for _ in students]
@@ -87,8 +87,8 @@ def allocate(students: list[Student], examiners: list[Examiner], capacity: int =
         time_weight = time_base ** (n - ranks[i] - 1)
         for j, arrival in enumerate(arrivals):
             h = arrival // MINUTES_PER_HOUR
-            # Студент присутствует от прихода до конца проверки, включая
-            # подготовку. Запрет любого пересечённого часа исключает батч.
+            # Students must be available from arrival through preparation and examination.
+            # An unavailable hour anywhere in that interval rules out the batch.
             end = arrival + prep_minutes + batch_minutes
             attendance_hours = range(h, (end - 1) // MINUTES_PER_HOUR + 1)
             if any(hour in student.unavailable for hour in attendance_hours):
@@ -98,17 +98,17 @@ def allocate(students: list[Student], examiners: list[Examiner], capacity: int =
             cost = cost * time_scale + j * time_weight
             choices[i].append((add(i, n + j, 1, cost), arrival, penalty))
 
-    # Начальный граф — DAG: источник → студенты → батчи → сток.
-    # Нулевые начальные значения эквивалентны дополнительному источнику
-    # с нулевыми рёбрами ко всем вершинам, включая недостижимые.
-    # Один проход даёт допустимые потенциалы за O(V + E).
+    # The initial graph is a DAG: source -> students -> batches -> sink.
+    # Initializing to zero is equivalent to adding a source with zero-cost
+    # edges to every vertex, including unreachable ones.
+    # One pass yields feasible potentials in O(V + E).
     potentials = [0] * len(graph)
     for node in [source, *range(source), sink]:
         for edge in graph[node]:
             if edge.capacity:
                 potentials[edge.to] = min(potentials[edge.to], potentials[node] + edge.cost)
 
-    # Остаточные рёбра позволяют пересмотреть уже сделанные назначения.
+    # Residual edges allow earlier assignments to be revised.
     while True:
         distances: list[int | None] = [None] * len(graph)
         previous: list[tuple[int, int] | None] = [None] * len(graph)
@@ -121,7 +121,7 @@ def allocate(students: list[Student], examiners: list[Examiner], capacity: int =
             for index, edge in enumerate(graph[node]):
                 if not edge.capacity:
                     continue
-                # Приведённая стоимость неотрицательна для достижимых рёбер.
+                # Reduced costs are nonnegative on reachable edges.
                 distance = current + edge.cost + potentials[node] - potentials[edge.to]
                 if distances[edge.to] is None or distance < distances[edge.to]:
                     distances[edge.to] = distance
@@ -129,8 +129,8 @@ def allocate(students: list[Student], examiners: list[Examiner], capacity: int =
                     heappush(queue, (distance, edge.to))
         if previous[sink] is None:
             break
-        # Дейкстра проходит все достижимые вершины, поэтому расстояния
-        # здесь окончательные, а новые потенциалы снова допустимы.
+        # Dijkstra visits every reachable vertex, so these distances are final
+        # and the updated potentials are feasible.
         for node, distance in enumerate(distances):
             if distance is not None:
                 potentials[node] += distance

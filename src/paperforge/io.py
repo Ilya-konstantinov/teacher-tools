@@ -1,4 +1,4 @@
-"""JSON-ввод вопросов; алгоритм работает с моделями, а не файлами."""
+"""Read question banks into the models used by the selection algorithms."""
 import json
 import re
 from collections import Counter
@@ -26,7 +26,7 @@ def read_questions(path: Path, *, sources=None) -> list[Question]:
 
 
 def read_text_question(path):
-    """Условие до первого a.; варианты могут занимать несколько строк."""
+    """Read the prompt up to the first option. Options can span multiple lines."""
     heading, options = [], []
     for line in path.read_text(encoding='utf-8-sig').splitlines():
         match = re.match(r'^\s*(?:\d+)?([a-z])\.\s+(.*)$', line)
@@ -55,7 +55,7 @@ def parse_questions(data, *, base_dir=Path('.'), sources=None) -> list[Question]
         if not ({'text', 'text_file'} & item.keys()):
             raise ValueError(f"Вопрос {number}: обязателен text либо text_file")
         if 'id' not in item:
-            # Номер позиции воспроизводим для одного банка; явные id сохраняются.
+            # Position-based IDs are reproducible for a given bank and preserve explicit IDs.
             identifier = base_id = f'q{number}'
             suffix = 2
             while identifier in reserved_ids:
@@ -109,7 +109,7 @@ def source_file(item, field, base_dir, sources, number):
 
 
 def question_answers(item):
-    """answers — основное поле; answer читается для прежних JSON."""
+    """Prefer answers and accept answer for compatibility with older JSON files."""
     if 'answers' in item and 'answer' in item and item['answers'] != item['answer']:
         raise ValueError(f"Вопрос {item.get('id')}: поля answers и answer противоречат друг другу")
     return item.get('answers', item.get('answer'))

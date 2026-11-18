@@ -1,4 +1,4 @@
-"""Модели расписания, чтение заявок и запись результата."""
+"""Schedule models, application parsing, and result serialization."""
 import csv
 import re
 from dataclasses import dataclass
@@ -10,7 +10,7 @@ MINUTES_PER_HOUR = 60
 HOURS_PER_DAY = 24
 MINUTES_PER_DAY = HOURS_PER_DAY * MINUTES_PER_HOUR
 PREFERENCE_COUNT = 3
-# Первые приоритеты имеют штрафы 0, 1, 2; далее любое допустимое время.
+# The first three preferences have penalties 0, 1, and 2, followed by any available slot.
 OUTSIDE_PREFERENCE_PENALTY = PREFERENCE_COUNT
 UNASSIGNED_PENALTY = OUTSIDE_PREFERENCE_PENALTY + 1
 PRIORITY_RADIX = UNASSIGNED_PENALTY + 1
@@ -47,7 +47,7 @@ def read_table(path: Path) -> list[list[str]]:
     with path.open(encoding="utf-8-sig", newline="") as stream:
         sample = stream.read(CSV_SNIFF_BYTES)
         stream.seek(0)
-        # В TSV запятые внутри списка часов не являются разделителями колонок.
+        # In TSV, commas inside an hour list do not separate columns.
         delimiter = "\t" if "\t" in sample else ";" if ";" in sample else ","
         return [[cell.strip() for cell in row] for row in csv.reader(stream, delimiter=delimiter)
                 if any(cell.strip() for cell in row)]

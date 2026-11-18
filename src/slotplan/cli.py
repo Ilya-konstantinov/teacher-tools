@@ -1,4 +1,4 @@
-"""Запуск: slotplan schedule --help."""
+"""Run slotplan schedule --help for usage."""
 import argparse
 from pathlib import Path
 

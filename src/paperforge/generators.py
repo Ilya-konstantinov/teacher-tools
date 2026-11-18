@@ -1,4 +1,4 @@
-"""Внешние Python-функции печати и адаптер генератора CppLyc."""
+"""Load external Python renderers and adapt CppLyc generators."""
 from datetime import date
 import importlib.util
 from pathlib import Path
@@ -28,7 +28,7 @@ def load_generator(spec, answers=False):
     if module_spec is None or module_spec.loader is None:
         raise ValueError(f'Невозможно загрузить генератор {path}')
     module = importlib.util.module_from_spec(module_spec)
-    # dataclasses разрешает аннотации через sys.modules во время импорта.
+    # Dataclasses resolve annotations through sys.modules during import.
     sys.modules[name] = module
     try:
         module_spec.loader.exec_module(module)
@@ -47,7 +47,7 @@ def load_generator(spec, answers=False):
 
 
 def render_cpplyc(module, data, *, answers=False, settings=None, **options):
-    """Сохраняет состав и порядок билетов; каждый билет начинается с новой страницы."""
+    """Preserve paper contents and order, starting each paper on a new page."""
     template_path = options.get('template') or Path(module.__file__).with_name(
         'answers-template.tex' if answers else 'template.tex')
     template = Path(template_path).expanduser().read_text(encoding='utf-8')
@@ -68,6 +68,6 @@ def render_cpplyc(module, data, *, answers=False, settings=None, **options):
             raise ValueError('Генератор CppLyc должен возвращать полный LaTeX-документ')
         if prefix is None:
             prefix, suffix = head + begin, end + tail
-        # Группы позволяют повторно использовать локальные определения шаблона.
+        # TeX groups allow each paper to reuse local template definitions.
         bodies.append('\n\\begingroup\n' + body + '\n\\endgroup\n')
     return prefix + '\n\\clearpage\n'.join(bodies) + suffix

@@ -1,4 +1,4 @@
-"""Выбор алгоритма, построение плана и публичный API генерации."""
+"""Select an algorithm, build a plan, and expose the public generation API."""
 import math
 from dataclasses import replace
 from fractions import Fraction
@@ -31,11 +31,7 @@ def plan_tickets(questions, questions_per_ticket, ticket_count,
                  target_weight, algorithm=None, time_limit=None,
                  allow_feasible=None, max_dp_states=None,
                  objective_mode=None, settings=None) -> TicketPlan:
-    """Выбор плана: по сложности (по умолчанию) либо со строгими частотами.
-
-    auto пробует профильную DP по суммам для weight-first. При превышении
-    бюджета переходит к типам, затем к прямой CP-SAT-модели.
-    """
+    """Select by difficulty (default) or strict frequencies. In weight-first mode, auto tries profile sum DP, then types, then direct CP-SAT if the budget is exceeded."""
     settings = settings if settings is not None else load_settings()
     defaults, search = settings.generation, settings.search
     group_mode = defaults.group_mode if group_mode is None else group_mode
@@ -121,7 +117,7 @@ def plan_tickets(questions, questions_per_ticket, ticket_count,
         if sum(p.capacity for p in pool) == ticket_count:
             return finish([p.capacity for p in pool], "fixed-types")
 
-    # Если возможных количественных планов мало, не строим многомерную DP.
+    # Skip multidimensional DP when only a few count plans are possible.
     reduced = reduce_counts(classes, pool, ticket_count)
     plan_bound = enumeration_bound(reduced, max_search_nodes)
     if algorithm == "enumerate" or (algorithm == "auto" and
@@ -146,7 +142,7 @@ def plan_tickets(questions, questions_per_ticket, ticket_count,
 
 
 def generate_tickets_report(*args, **kwargs):
-    """Совместимый составной вызов двух этапов."""
+    """Run both stages through the compatibility API."""
     return restore_tickets(plan_tickets(*args, **kwargs))
 
 
