@@ -1,0 +1,1 @@
+"""Slotplan tests."""

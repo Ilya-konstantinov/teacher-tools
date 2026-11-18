@@ -1,0 +1,6 @@
+[
+  {"text": "What is RAII?", "group": "Memory", "answers": "Resource management tied to object lifetime."},
+  {"text": "What does a destructor do?", "group": "Memory", "answers": "It performs cleanup when an object's lifetime ends."},
+  {"text": "Select the even numbers.", "group": "Arithmetic", "options": [["a", "2"], ["b", "3"], ["c", "4"]], "answers": {"correct": ["a", "c"], "comment": "Both are divisible by two."}},
+  {"text": "What is the sum of 2 and 3?", "group": "Arithmetic", "answers": "5"}
+]

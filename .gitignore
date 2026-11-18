@@ -19,15 +19,12 @@ htmlcov/
 .test/
 local/
 
-# Generated schedules and reports (examples remain tracked)
-/colloq_time/*.tsv
-/colloq_time/*.csv
-/colloq_time/*.html
-
-# Generated tickets and print artifacts
-/colloq_tickets/tickets*.json
-/colloq_tickets/*.tex
-/colloq_tickets/*.pdf
+# Generated output and local build products
+outputs/
+build/
+dist/
+*.egg-info/
+*.spec
 *.aux
 *.log
 *.out
@@ -35,4 +32,7 @@ local/
 *.fls
 *.fdb_latexmk
 *.synctex.gz
-outputs/
+
+# Local build links
+/result
+/result-*
